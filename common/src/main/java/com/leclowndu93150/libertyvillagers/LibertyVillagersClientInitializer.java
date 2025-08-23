@@ -1,8 +1,6 @@
 package com.leclowndu93150.libertyvillagers;
 
-import com.leclowndu93150.libertyvillagers.overlay.LibertyVillagersOverlay;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.StringSplitter;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
@@ -11,11 +9,9 @@ import net.minecraft.world.item.ItemStack;
 import java.util.LinkedList;
 import java.util.List;
 
-public class LibertyVillagersClientInitializer implements ClientModInitializer {
+public class LibertyVillagersClientInitializer {
 
-    @Override
-    public void onInitializeClient() {
-        LibertyVillagersOverlay.register();
+    public static void init() {
         LibertyVillagersMod.setIsClient(true);
     }
 

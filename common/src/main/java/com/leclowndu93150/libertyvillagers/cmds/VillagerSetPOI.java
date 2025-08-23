@@ -1,7 +1,6 @@
 package com.leclowndu93150.libertyvillagers.cmds;
 
 import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -22,18 +21,6 @@ import java.util.Optional;
 import static net.minecraft.commands.Commands.literal;
 
 public class VillagerSetPOI {
-    public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
-                literal("villagersetpoi").executes(context -> {
-                    processVillagerSetPOI(context);
-                    return 1;
-                })));
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> dispatcher.register(literal("vsp").executes(context -> {
-                    processVillagerSetPOI(context);
-                    return 1;
-                })));
-    }
 
     public static void processVillagerSetPOI(CommandContext<CommandSourceStack> command) {
         CommandSourceStack source = command.getSource();

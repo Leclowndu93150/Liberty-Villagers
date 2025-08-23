@@ -4,8 +4,6 @@ import com.leclowndu93150.libertyvillagers.LibertyVillagersClientInitializer;
 import com.leclowndu93150.libertyvillagers.LibertyVillagersMod;
 import com.leclowndu93150.libertyvillagers.LibertyVillagersServerInitializer;
 import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -51,18 +49,6 @@ class ProfessionInfo {
 public class VillagerStats {
     private static final int LINES_PER_PAGE = 14;
 
-    public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
-                literal("villagerstats").executes(context -> {
-                    processVillagerStats(context);
-                    return 1;
-                })));
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> dispatcher.register(literal("vs").executes(context -> {
-                    processVillagerStats(context);
-                    return 1;
-                })));
-    }
 
     public static void processVillagerStats(CommandContext<CommandSourceStack> command) {
         CommandSourceStack source = command.getSource();
@@ -95,12 +81,8 @@ public class VillagerStats {
 
         if (LibertyVillagersMod.isClient()) {
             LibertyVillagersClientInitializer.openBookScreen(bookStack);
-        } else if (FabricLoader.getInstance().getModContainer("server_translations_api").isPresent()) {
-            LibertyVillagersServerInitializer.openBookScreen(bookStack, player);
         } else {
-            player.sendSystemMessage(Component.nullToEmpty(
-                "Server_translations_api is missing. VillagerStats does not work server-side without translations."
-            ));
+            LibertyVillagersServerInitializer.openBookScreen(bookStack, player);
         }
     }
 

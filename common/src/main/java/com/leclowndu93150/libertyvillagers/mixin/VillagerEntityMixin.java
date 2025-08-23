@@ -58,7 +58,7 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
     public static Map<Item, Integer> FOOD_POINTS;
 
     @Shadow
-    private static Set<Item> WANTED_ITEMS;
+    public static Set<Item> WANTED_ITEMS;
 
     @Inject(method = "<clinit>", at = @At("TAIL"))
     static private void modifyStaticBlock(CallbackInfo ci) {

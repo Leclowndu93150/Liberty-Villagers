@@ -51,7 +51,6 @@
   ],
   "client": [
     "FishingBobberEntityRendererMixin",
-    "MixinMinecraft",
     "ModelPredicateProviderRegistryMixin"
   ],
   "server": [],

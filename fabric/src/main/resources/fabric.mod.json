@@ -12,11 +12,14 @@
     "sources": "https://github.com/FabricMC/fabric-example-mod"
   },
   "license": "${license}",
-  "icon": "${mod_id}.png",
+  "icon": "icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
       "com.leclowndu93150.libertyvillagers.LibertyVillagers"
+    ],
+    "client": [
+      "com.leclowndu93150.libertyvillagers.LibertyVillagersClient"
     ],
     "modmenu": [
       "com.leclowndu93150.libertyvillagers.integration.ModMenuIntegration"

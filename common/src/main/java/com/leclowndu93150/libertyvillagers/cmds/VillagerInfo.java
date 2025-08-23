@@ -1,7 +1,6 @@
 package com.leclowndu93150.libertyvillagers.cmds;
 
 import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
@@ -35,25 +34,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
-import static net.minecraft.commands.Commands.literal;
 
 
 public class VillagerInfo {
 
     final static String BLANK_COORDS = "                 ";
 
-    public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
-                literal("villagerinfo").executes(context -> {
-                    processVillagerInfo(context);
-                    return 1;
-                })));
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> dispatcher.register(literal("vi").executes(context -> {
-                    processVillagerInfo(context);
-                    return 1;
-                })));
-    }
 
     public static void processVillagerInfo(CommandContext<CommandSourceStack> command) {
         CommandSourceStack source = command.getSource();

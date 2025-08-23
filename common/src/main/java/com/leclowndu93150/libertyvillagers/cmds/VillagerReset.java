@@ -1,7 +1,6 @@
 package com.leclowndu93150.libertyvillagers.cmds;
 
 import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -14,18 +13,6 @@ import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 import static net.minecraft.commands.Commands.literal;
 
 public class VillagerReset {
-    public static void register() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
-                literal("villagerreset").executes(context -> {
-                    processVillagerReset(context);
-                    return 1;
-                })));
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> dispatcher.register(literal("vr").executes(context -> {
-                    processVillagerReset(context);
-                    return 1;
-                })));
-    }
 
     public static void processVillagerReset(CommandContext<CommandSourceStack> command) {
         CommandSourceStack source = command.getSource();
