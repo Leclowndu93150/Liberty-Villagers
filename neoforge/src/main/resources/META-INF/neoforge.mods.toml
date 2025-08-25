@@ -30,7 +30,7 @@ ordering = "NONE"
 side = "BOTH"
 
 [[dependencies."${mod_id}"]]
-modId = "cloth-config"
+modId = "cloth_config"
 type = "required" #mandatory Can be one of "required", "optional", "incompatible" or "discouraged"
 versionRange = "*"
 ordering = "NONE"
