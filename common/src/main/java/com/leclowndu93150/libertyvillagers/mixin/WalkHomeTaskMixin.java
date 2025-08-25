@@ -27,7 +27,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 
-@Mixin(SetClosestHomeAsWalkTarget.class)
+@Mixin(value = SetClosestHomeAsWalkTarget.class)
 public abstract class WalkHomeTaskMixin {
 
     private static ServerLevel world;
