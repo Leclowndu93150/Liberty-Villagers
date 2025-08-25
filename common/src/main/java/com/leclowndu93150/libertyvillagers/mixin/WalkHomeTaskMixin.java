@@ -2,97 +2,118 @@ package com.leclowndu93150.libertyvillagers.mixin;
 
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import org.apache.commons.lang3.mutable.MutableLong;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.*;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
-
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.Vec3i;
+import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.behavior.AcquirePoi;
+import net.minecraft.world.entity.ai.behavior.BehaviorControl;
 import net.minecraft.world.entity.ai.behavior.SetClosestHomeAsWalkTarget;
-import net.minecraft.world.entity.ai.behavior.declarative.MemoryAccessor;
+import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Path;
+import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.lang3.mutable.MutableLong;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 
 @Mixin(value = SetClosestHomeAsWalkTarget.class)
 public abstract class WalkHomeTaskMixin {
 
-    private static ServerLevel world;
+    /**
+     * @author LibertyVillagers
+     * @reason Replace squared distance with Manhattan distance, modify POI range, and filter occupied beds
+     */
+    @Overwrite
+    public static BehaviorControl<PathfinderMob> create(float speedModifier) {
+        Long2LongMap long2LongMap = new Long2LongOpenHashMap();
+        MutableLong mutableLong = new MutableLong(0L);
+        return BehaviorBuilder.create(
+            instance -> instance.group(instance.absent(MemoryModuleType.WALK_TARGET), instance.absent(MemoryModuleType.HOME))
+                    .apply(
+                        instance,
+                        (memoryAccessor, memoryAccessor2) -> (serverLevel, pathfinderMob, l) -> {
+                                if (serverLevel.getGameTime() - mutableLong.getValue() < 20L) {
+                                    return false;
+                                } else {
+                                    PoiManager poiManager = serverLevel.getPoiManager();
+                                    Optional<BlockPos> optional = poiManager.findClosest(holder -> holder.is(PoiTypes.HOME), pathfinderMob.blockPosition(), CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.ANY);
+                                    // Use Manhattan distance instead of squared distance
+                                    if (!optional.isEmpty() && !(((BlockPos)optional.get()).distManhattan(pathfinderMob.blockPosition()) <= 2)) {
+                                        MutableInt mutableInt = new MutableInt(0);
+                                        mutableLong.setValue(serverLevel.getGameTime() + (long)serverLevel.getRandom().nextInt(20));
+                                        Predicate<BlockPos> predicate = blockPosx -> {
+                                            long lx = blockPosx.asLong();
+                                            if (long2LongMap.containsKey(lx)) {
+                                                return false;
+                                            } else if (mutableInt.incrementAndGet() >= 5) {
+                                                return false;
+                                            } else {
+                                                long2LongMap.put(lx, mutableLong.getValue() + 40L);
+                                                return true;
+                                            }
+                                        };
+                                        
+                                        // Modified predicate to filter occupied beds
+                                        Predicate<BlockPos> newBlockPosPredicate = blockPos -> {
+                                            if (isBedOccupied(serverLevel, blockPos)) {
+                                                return false;
+                                            }
+                                            return predicate.test(blockPos);
+                                        };
+                                        
+                                        Set<Pair<Holder<PoiType>, BlockPos>> set = (Set<Pair<Holder<PoiType>, BlockPos>>)poiManager.findAllClosestFirstWithType(
+                                                holder -> holder.is(PoiTypes.HOME), newBlockPosPredicate, pathfinderMob.blockPosition(), 
+                                                CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.HAS_SPACE
+                                            )
+                                            .collect(Collectors.toSet());
+                                        
+                                        // If all beds are occupied, fall back to default behavior
+                                        if (set.isEmpty()) {
+                                            set = (Set<Pair<Holder<PoiType>, BlockPos>>)poiManager.findAllClosestFirstWithType(
+                                                    holder -> holder.is(PoiTypes.HOME), predicate, pathfinderMob.blockPosition(),
+                                                    CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.ANY
+                                                )
+                                                .collect(Collectors.toSet());
+                                        }
+                                        
+                                        Path path = AcquirePoi.findPathToPois(pathfinderMob, set);
+                                        if (path != null && path.canReach()) {
+                                            BlockPos blockPos = path.getTarget();
+                                            Optional<Holder<PoiType>> optional2 = poiManager.getType(blockPos);
+                                            if (optional2.isPresent()) {
+                                                memoryAccessor.set(new WalkTarget(blockPos, speedModifier, 1));
+                                                DebugPackets.sendPoiTicketCountPacket(serverLevel, blockPos);
+                                            }
+                                        } else if (mutableInt.getValue() < 5) {
+                                            long2LongMap.long2LongEntrySet().removeIf(entry -> entry.getLongValue() < mutableLong.getValue());
+                                        }
 
-    /* Prevents villagers from getting confused about a door directly below their bed. */
-    @SuppressWarnings("target")
-    @Redirect(method = "lambda$create$4(Lorg/apache/commons/lang3/mutable/MutableLong;Lit/unimi/dsi/fastutil/longs/Long2LongMap;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FLnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/core/BlockPos;distSqr(Lnet/minecraft/core/Vec3i;)D"))
-    private static double replaceSquaredDistanceWithManhattan(BlockPos origin, Vec3i dest) {
-        return origin.distManhattan(dest);
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            }
+                    )
+        );
     }
-
-    @ModifyConstant(method = "lambda$create$4(Lorg/apache/commons/lang3/mutable/MutableLong;Lit/unimi/dsi/fastutil/longs/Long2LongMap;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FLnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            constant = @Constant(doubleValue = 4.0))
-    private static double replaceSquaredDistanceWithManhattanConstant(double constant) {
-        return 2.0f;
-    }
-
-    @SuppressWarnings("target")
-    @ModifyArgs(method = "lambda$create$4(Lorg/apache/commons/lang3/mutable/MutableLong;Lit/unimi/dsi/fastutil/longs/Long2LongMap;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FLnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/ai/village/poi/PoiManager;findClosest(Ljava/util/function/Predicate;Lnet/minecraft/core/BlockPos;ILnet/minecraft/world/entity/ai/village/poi/PoiManager$Occupancy;)Ljava/util/Optional;"))
-    private static void modifyShouldRunGetNearestPositionArgs(Args args) {
-        args.set(2, CONFIG.villagerPathfindingConfig.findPOIRange);
-    }
-
-    @SuppressWarnings("target")
-    @Inject(method = "lambda$create$4(Lorg/apache/commons/lang3/mutable/MutableLong;Lit/unimi/dsi/fastutil/longs/Long2LongMap;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FLnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            at = @At("HEAD"))
-    private static void runHead(MutableLong mutableLong, Long2LongMap map, MemoryAccessor result, float speed,
-                           ServerLevel serverWorld,
-                           PathfinderMob entity,
-                           long time, CallbackInfoReturnable<Boolean> cir) {
-        world = serverWorld;
-    }
-
-    @Redirect(method = "lambda$create$4(Lorg/apache/commons/lang3/mutable/MutableLong;Lit/unimi/dsi/fastutil/longs/Long2LongMap;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FLnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/village/poi/PoiManager;findAllWithType(Ljava/util/function/Predicate;Ljava/util/function/Predicate;Lnet/minecraft/core/BlockPos;ILnet/minecraft/world/entity/ai/village/poi/PoiManager$Occupancy;)Ljava/util/stream/Stream;"))
-    private static Stream<Pair<Holder<PoiType>, BlockPos>> modifyGetTypesAndPositions(
-            PoiManager pointOfInterestStorage, Predicate<Holder<PoiType>> typePredicate,
-            Predicate<BlockPos> posPredicate, BlockPos pos, int radius,
-            PoiManager.Occupancy occupationStatus) {
-        Predicate<BlockPos> newBlockPosPredicate = blockPos -> {
-            if (isBedOccupied(world, blockPos)) {
-                return false;
-            }
-            return posPredicate.test(blockPos);
-        };
-
-        Stream<Pair<Holder<PoiType>, BlockPos>> stream =
-                pointOfInterestStorage.findAllClosestFirstWithType(typePredicate, newBlockPosPredicate, pos,
-                        CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.HAS_SPACE);
-        Set<Pair<Holder<PoiType>, BlockPos>> set = stream.collect(Collectors.toSet());
-
-        if (!set.isEmpty()) {
-            return set.stream();
-        }
-
-        // All beds are occupied, go back to default behavior of meeping around the nearest bed at night, worst
-        // roommate ever.
-        return pointOfInterestStorage.findAllClosestFirstWithType(typePredicate, posPredicate, pos,
-                CONFIG.villagerPathfindingConfig.findPOIRange, occupationStatus);
-    }
-
+    
     private static boolean isBedOccupied(ServerLevel world, BlockPos pos) {
         BlockState blockState = world.getBlockState(pos);
         return blockState.is(BlockTags.BEDS) && blockState.getValue(BedBlock.OCCUPIED);

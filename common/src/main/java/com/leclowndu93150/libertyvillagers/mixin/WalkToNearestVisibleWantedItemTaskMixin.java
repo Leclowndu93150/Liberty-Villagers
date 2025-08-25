@@ -1,56 +1,58 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
+import com.mojang.datafixers.kinds.K1;
 import java.util.function.Predicate;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.behavior.BehaviorControl;
+import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.behavior.GoToWantedItem;
 import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
 import net.minecraft.world.entity.ai.behavior.declarative.MemoryAccessor;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
 
 @Mixin(GoToWantedItem.class)
 public abstract class WalkToNearestVisibleWantedItemTaskMixin {
 
-    // Injecting into the lambda of the TaskTriggerer.
-    @SuppressWarnings({"target", "descriptor"})
-    @Inject(method = "lambda$create$1(Lnet/minecraft/world/entity/ai/behavior/declarative/BehaviorBuilder$Instance;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;Ljava/util/function/Predicate;IFLnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;J)Z",
-            at = @At("HEAD"),
-            cancellable = true)
-    static private void dontMoveIfOnTopOfItem(BehaviorBuilder.Instance context,
-                                              MemoryAccessor nearestVisibleWantedItem,
-                                              MemoryAccessor itemPickupCooldownTicks,
-                                              Predicate startCondition,
-                                              int radius,
-                                              float speed,
-                                              MemoryAccessor walkTarget,
-                                              MemoryAccessor lookTarget,
-                                              ServerLevel world,
-                                              LivingEntity entity,
-                                              long time,
-                                              CallbackInfoReturnable<Boolean> cir) {
-        if (entity.getType() != EntityType.VILLAGER) {
-            return;
-        }
-        @SuppressWarnings("unchecked")
-        ItemEntity itemEntity = (ItemEntity)context.get(nearestVisibleWantedItem);
-        if (itemEntity.closerThan(entity, 0)) {
-            // Already on top of the nearest visible item.
-            cir.setReturnValue(false);
-            cir.cancel();
-        }
-        // If our inventory is full, don't move towards the item.
-        ItemStack stack = itemEntity.getItem();
-        if (!((Villager)entity).getInventory().canAddItem(stack)) {
-            cir.setReturnValue(false);
-            cir.cancel();
-        }
+    /**
+     * @author LibertyVillagers
+     * @reason Prevent villagers from moving if already on top of item or if inventory is full
+     */
+    @Overwrite
+    public static <E extends LivingEntity> BehaviorControl<E> create(Predicate<E> pCanWalkToItem, float pSpeedModifier, boolean pHasTarget, int pMaxDistToWalk) {
+        return BehaviorBuilder.create((p_258371_) -> {
+            BehaviorBuilder<E, ? extends MemoryAccessor<? extends K1, WalkTarget>> behaviorbuilder = pHasTarget ? p_258371_.registered(MemoryModuleType.WALK_TARGET) : p_258371_.absent(MemoryModuleType.WALK_TARGET);
+            return p_258371_.group(p_258371_.registered(MemoryModuleType.LOOK_TARGET), behaviorbuilder, p_258371_.present(MemoryModuleType.NEAREST_VISIBLE_WANTED_ITEM), p_258371_.registered(MemoryModuleType.ITEM_PICKUP_COOLDOWN_TICKS)).apply(p_258371_, (p_258387_, p_258388_, p_258389_, p_258390_) -> (p_258380_, p_258381_, p_258382_) -> {
+                ItemEntity itementity = (ItemEntity)p_258371_.get(p_258389_);
+
+                if (p_258381_.getType() == EntityType.VILLAGER) {
+                    Villager villager = (Villager) p_258381_;
+
+                    if (itementity.closerThan(p_258381_, 0)) {
+                        return false;
+                    }
+
+                    ItemStack stack = itementity.getItem();
+                    if (!villager.getInventory().canAddItem(stack)) {
+                        return false;
+                    }
+                }
+                
+                if (p_258371_.tryGet(p_258390_).isEmpty() && pCanWalkToItem.test(p_258381_) && itementity.closerThan(p_258381_, (double)pMaxDistToWalk) && p_258381_.level().getWorldBorder().isWithinBounds(itementity.blockPosition())) {
+                    WalkTarget walktarget = new WalkTarget(new EntityTracker(itementity, false), pSpeedModifier, 0);
+                    p_258387_.set(new EntityTracker(itementity, true));
+                    p_258388_.set(walktarget);
+                    return true;
+                } else {
+                    return false;
+                }
+            });
+        });
     }
 }

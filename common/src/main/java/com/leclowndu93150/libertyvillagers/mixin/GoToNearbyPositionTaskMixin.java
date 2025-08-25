@@ -1,39 +1,53 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.behavior.BehaviorControl;
 import net.minecraft.world.entity.ai.behavior.StrollToPoi;
 import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
-import net.minecraft.world.entity.ai.behavior.declarative.MemoryAccessor;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.Items;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.Overwrite;
 
 @Mixin(StrollToPoi.class)
 public class GoToNearbyPositionTaskMixin {
 
-    @Inject(method = "lambda$create$0(Lnet/minecraft/world/entity/ai/behavior/declarative/BehaviorBuilder$Instance;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;ILorg/apache/commons/lang3/mutable/MutableLong;Lnet/minecraft/world/entity/ai/behavior/declarative/MemoryAccessor;FILnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)Z",
-            at = @At("HEAD"),
-            cancellable = true)
-    static private void dontRunIfFishing(BehaviorBuilder.Instance<PathfinderMob> context, MemoryAccessor result,
-                                         int maxDistance,
-            MutableLong mutableLong, MemoryAccessor result2, float walkSpeed,
-            int completionRange,
-            ServerLevel serverWorld, PathfinderMob pathAwareEntity, long time,
-            CallbackInfoReturnable<Boolean> cir) {
-        if (pathAwareEntity.getType() == EntityType.VILLAGER) {
-            Villager villager = (Villager) pathAwareEntity;
-            if (villager.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
-                    villager.getMainHandItem().is(Items.FISHING_ROD)) {
-                    cir.setReturnValue(false);
-                    cir.cancel();
-            }
-        }
+    /**
+     * @author LibertyVillagers
+     * @reason Prevent fisherman villagers from strolling while fishing
+     */
+    @Overwrite
+    public static BehaviorControl<PathfinderMob> create(MemoryModuleType<GlobalPos> poiPosMemory, float speedModifier, int closeEnoughDist, int maxDistFromPoi) {
+        MutableLong mutableLong = new MutableLong(0L);
+        return BehaviorBuilder.create(
+            instance -> instance.group(instance.registered(MemoryModuleType.WALK_TARGET), instance.present(poiPosMemory))
+                    .apply(instance, (memoryAccessor, memoryAccessor2) -> (serverLevel, pathfinderMob, l) -> {
+                            // Check if the entity is a fisherman villager holding a fishing rod
+                            if (pathfinderMob.getType() == EntityType.VILLAGER) {
+                                Villager villager = (Villager) pathfinderMob;
+                                if (villager.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
+                                        villager.getMainHandItem().is(Items.FISHING_ROD)) {
+                                    return false; // Prevent strolling while fishing
+                                }
+                            }
+                            
+                            GlobalPos globalPos = (GlobalPos)instance.get(memoryAccessor2);
+                            if (serverLevel.dimension() != globalPos.dimension() || !globalPos.pos().closerToCenterThan(pathfinderMob.position(), (double)maxDistFromPoi)) {
+                                return false;
+                            } else if (l <= mutableLong.getValue()) {
+                                return true;
+                            } else {
+                                memoryAccessor.set(new WalkTarget(globalPos.pos(), speedModifier, closeEnoughDist));
+                                mutableLong.setValue(l + 80L);
+                                return true;
+                            }
+                        })
+        );
     }
 }
