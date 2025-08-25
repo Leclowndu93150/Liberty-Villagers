@@ -50,8 +50,8 @@
     "WanderNearTargetGoalMixin"
   ],
   "client": [
-    "FishingBobberEntityRendererMixin",
-    "ModelPredicateProviderRegistryMixin"
+    "ConditionalItemModelPropertiesMixin",
+    "FishingBobberEntityRendererMixin"
   ],
   "server": [],
   "injectors": {

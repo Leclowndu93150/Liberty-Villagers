@@ -1,5 +1,6 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
+import net.minecraft.server.level.ServerLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,9 +35,9 @@ public class FarmerWorkTaskMixin {
         }
     }
 
-    @Inject(method = "makeBread(Lnet/minecraft/world/entity/npc/Villager;)V",
+    @Inject(method = "makeBread",
             at = @At("HEAD"))
-    private void craftAndDropPumpkinPie(Villager entity, CallbackInfo ci) {
+    private void craftAndDropPumpkinPie(ServerLevel level, Villager entity, CallbackInfo ci) {
         SimpleContainer simpleInventory = entity.getInventory();
         if (CONFIG.villagersProfessionConfig.farmersHarvestPumpkins) {
             if (simpleInventory.countItem(Items.PUMPKIN_PIE) > 36) {
@@ -51,7 +52,7 @@ public class FarmerWorkTaskMixin {
             simpleInventory.removeItemType(Items.PUMPKIN, i);
             ItemStack itemStack = simpleInventory.addItem(new ItemStack(Items.PUMPKIN_PIE, i));
             if (!itemStack.isEmpty()) {
-                entity.spawnAtLocation(itemStack, 0.5f);
+                entity.spawnAtLocation(level, itemStack, 0.5f);
             }
         }
     }

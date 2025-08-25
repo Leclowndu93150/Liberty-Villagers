@@ -34,11 +34,9 @@ public abstract class ActiveTargetGoalMixin extends TargetGoal {
         super(mob, false);
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/world/entity/Mob;Ljava/lang/Class;IZZLjava/util/function/Predicate;)V",
+    @Inject(method = "<init>(Lnet/minecraft/world/entity/Mob;Ljava/lang/Class;IZZLnet/minecraft/world/entity/ai/targeting/TargetingConditions$Selector;)V",
             at = @At("RETURN"))
-    void changeAngerDistanceForIronGolems(Mob mob, Class<?> targetClass, int reciprocalChance,
-                                          boolean checkVisibility, boolean checkCanNavigate,
-                                          @Nullable Predicate<LivingEntity> targetPredicate, CallbackInfo ci) {
+    void changeAngerDistanceForIronGolems(Mob mob, Class targetType, int interval, boolean mustSee, boolean mustReach, TargetingConditions.Selector selector, CallbackInfo ci) {
         if (mob.getType() == EntityType.IRON_GOLEM) {
             this.targetConditions.range(CONFIG.golemsConfig.golemAggroRange);
         }

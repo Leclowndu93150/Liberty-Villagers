@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
@@ -57,7 +58,8 @@ public abstract class FindPointOfInterestTaskMixin {
         MemoryModuleType<GlobalPos> existingAbsentMemory,
         MemoryModuleType<GlobalPos> acquiringMemory,
         boolean onlyIfAdult,
-        Optional<Byte> entityEventId
+        Optional<Byte> entityEventId,
+        BiPredicate<ServerLevel, BlockPos> predicate
     ) {
         int i = 5;
         int j = 20;
@@ -112,6 +114,7 @@ public abstract class FindPointOfInterestTaskMixin {
                                             acquirablePois, predicate2, pathfinderMob.blockPosition(), poiRange, PoiManager.Occupancy.HAS_SPACE
                                         )
                                         .limit(5L)
+                                        .filter(pair -> predicate.test(serverLevel, pair.getSecond()))
                                         .collect(Collectors.toSet());
                                     Path path = findPathToPois(pathfinderMob, set);
                                     if (path != null && path.canReach()) {

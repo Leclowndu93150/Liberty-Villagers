@@ -34,12 +34,14 @@ public class FisherWorkTask extends WorkAtPoi {
         simpleInventory.removeItemType(Items.COD, cod);
         simpleInventory.removeItemType(Items.SALMON, salmon);
         ItemStack cookedSalmon = simpleInventory.addItem(new ItemStack(Items.COOKED_SALMON, salmon));
-        if (!cookedSalmon.isEmpty()) {
-            entity.spawnAtLocation(cookedSalmon, 0.5f);
-        }
-        ItemStack cookedCod = simpleInventory.addItem(new ItemStack(Items.COOKED_COD, cod));
-        if (!cookedCod.isEmpty()) {
-            entity.spawnAtLocation(cookedCod, 0.5f);
+        if(entity.level() instanceof ServerLevel serverLevel){
+            if (!cookedSalmon.isEmpty()) {
+                entity.spawnAtLocation(serverLevel, cookedSalmon, 0.5f);
+            }
+            ItemStack cookedCod = simpleInventory.addItem(new ItemStack(Items.COOKED_COD, cod));
+            if (!cookedCod.isEmpty()) {
+                entity.spawnAtLocation(serverLevel, cookedCod, 0.5f);
+            }
         }
     }
 }

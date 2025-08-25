@@ -4,7 +4,7 @@ plugins {
 }
 
 base {
-    archivesName = "${mod_id}-1.21.1-NeoForge"
+    archivesName = "${mod_id}-1.21.4-NeoForge"
 }
 
 neoForge {
@@ -12,7 +12,7 @@ neoForge {
     // Automatically enable neoforge AccessTransformers if the file exists
     def at = project(':common').file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
-        accessTransformers.add(at.absolutePath)
+        accessTransformers.from(at.absolutePath)
     }
     parchment {
         minecraftVersion = parchment_minecraft
@@ -26,9 +26,6 @@ neoForge {
         client {
             client()
         }
-        data {
-            data()
-        }
         server {
             server()
         }
@@ -41,7 +38,7 @@ neoForge {
 }
 
 dependencies {
-    implementation "curse.maven:cloth-config-348521:5729127"
+    implementation "curse.maven:cloth-config-348521:5987045"
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }

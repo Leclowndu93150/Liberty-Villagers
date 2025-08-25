@@ -46,6 +46,20 @@ public abstract class VillagerProfessionMixin {
     void replaceGatherableItems(CallbackInfoReturnable<ImmutableSet<Item>> cir) {
         ImmutableSet<Item> originalSet = cir.getReturnValue();
         ImmutableSet.Builder<Item> setBuilder = ImmutableSet.<Item>builder().addAll(originalSet);
+        
+        // Add general food items that all villagers should pick up
+        if (CONFIG.villagersGeneralConfig.villagersEatMelons) {
+            setBuilder.add(Items.MELON_SLICE);
+        }
+        if (CONFIG.villagersGeneralConfig.villagersEatPumpkinPie) {
+            setBuilder.add(Items.PUMPKIN_PIE);
+        }
+        if (CONFIG.villagersGeneralConfig.villagersEatCookedFish) {
+            setBuilder.add(Items.COOKED_COD);
+            setBuilder.add(Items.COOKED_SALMON);
+        }
+        
+        // Add profession-specific items
         switch (name) {
             case "butcher" -> {
                 if (CONFIG.villagersProfessionConfig.butchersFeedChickens) {
@@ -58,6 +72,9 @@ public abstract class VillagerProfessionMixin {
             case "farmer" -> {
                 if (CONFIG.villagersProfessionConfig.farmersHarvestPumpkins) {
                     setBuilder.addAll(ImmutableSet.of(Items.PUMPKIN_SEEDS, Items.PUMPKIN));
+                }
+                if (CONFIG.villagersProfessionConfig.farmersHarvestMelons) {
+                    setBuilder.addAll(ImmutableSet.of(Items.MELON_SEEDS, Items.MELON_SLICE));
                 }
             }
             case "fisherman" -> {

@@ -1,7 +1,5 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
 import net.minecraft.nbt.CompoundTag;
@@ -57,37 +55,21 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
     @Shadow
     public static Map<Item, Integer> FOOD_POINTS;
 
-    @Shadow
-    public static Set<Item> WANTED_ITEMS;
-
     @Inject(method = "<clinit>", at = @At("TAIL"))
     static private void modifyStaticBlock(CallbackInfo ci) {
-        // Only specific professions should have seeds and wheat.
-        WANTED_ITEMS =  ImmutableSet.copyOf(Sets.difference(WANTED_ITEMS,
-                ImmutableSet.of(Items.WHEAT_SEEDS, Items.BEETROOT_SEEDS, Items.WHEAT)));
+        // Add extra food items to FOOD_POINTS
         if (CONFIG.villagersGeneralConfig.villagersEatMelons) {
-            WANTED_ITEMS = new HashSet<>(WANTED_ITEMS);
-            WANTED_ITEMS.add(Items.MELON_SLICE);
             FOOD_POINTS = new HashMap<>(FOOD_POINTS);
             FOOD_POINTS.put(Items.MELON_SLICE, 1);
-        }
-        if (CONFIG.villagersProfessionConfig.farmersHarvestMelons) {
-            WANTED_ITEMS = new HashSet<>(WANTED_ITEMS);
-            WANTED_ITEMS.add(Items.MELON_SLICE);
         }
         if (CONFIG.villagersGeneralConfig.villagersEatPumpkinPie) {
             FOOD_POINTS = new HashMap<>(FOOD_POINTS);
             FOOD_POINTS.put(Items.PUMPKIN_PIE, 1);
-            WANTED_ITEMS = new HashSet<>(WANTED_ITEMS);
-            WANTED_ITEMS.add(Items.PUMPKIN_PIE);
         }
         if (CONFIG.villagersGeneralConfig.villagersEatCookedFish) {
             FOOD_POINTS = new HashMap<>(FOOD_POINTS);
             FOOD_POINTS.put(Items.COOKED_COD, 1);
             FOOD_POINTS.put(Items.COOKED_SALMON, 1);
-            WANTED_ITEMS = new HashSet<>(WANTED_ITEMS);
-            WANTED_ITEMS.add(Items.COOKED_COD);
-            WANTED_ITEMS.add(Items.COOKED_SALMON);
         }
     }
 
@@ -220,10 +202,11 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
             this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
         }
         // Get rid of items the villager can't gather.
-        for (int i = this.getInventory().getContainerSize(); i >= 0; i-- ) {
+        for (int i = this.getInventory().getContainerSize() - 1; i >= 0; i-- ) {
             ItemStack stack = this.getInventory().getItem(i);
             if (stack.isEmpty()) continue;
-            if (WANTED_ITEMS.contains(stack.getItem())) continue;
+            // Keep food items and profession-specific items
+            if (FOOD_POINTS.containsKey(stack.getItem())) continue;
             if (this.getVillagerData().getProfession().requestedItems().contains(stack.getItem())) continue;
             this.getInventory().removeItemNoUpdate(i);
         }

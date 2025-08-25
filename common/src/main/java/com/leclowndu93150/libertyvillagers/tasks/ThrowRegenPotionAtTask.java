@@ -54,7 +54,7 @@ public class ThrowRegenPotionAtTask extends HealTargetTask {
         double f = currentPatient.getZ() + vec3d.z - villagerEntity.getZ();
         double g = Math.sqrt(d * d + f * f);
 
-        ThrownPotion potionEntity = new ThrownPotion(serverWorld, villagerEntity);
+        ThrownPotion potionEntity = new ThrownPotion(serverWorld, villagerEntity, Items.SPLASH_POTION.getDefaultInstance());
         potionEntity.setItem(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.REGENERATION));
         potionEntity.setXRot(potionEntity.getXRot() + 20.0f);
         potionEntity.shoot(d, e + g * 0.2, f, 0.75f, 8.0f);

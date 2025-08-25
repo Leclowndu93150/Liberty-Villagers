@@ -8,11 +8,14 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.FishingHookRenderer;
+import net.minecraft.client.renderer.entity.state.FishingHookRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.projectile.FishingHook;
+import net.minecraft.world.phys.Vec3;
+import com.leclowndu93150.libertyvillagers.util.VillagerFishingRenderState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -20,9 +23,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(FishingHookRenderer.class)
-public abstract class FishingBobberEntityRendererMixin extends EntityRenderer<FishingHook> {
+public abstract class FishingBobberEntityRendererMixin extends EntityRenderer<FishingHook, FishingHookRenderState> {
 
     @Final
     @Shadow
@@ -71,58 +75,60 @@ public abstract class FishingBobberEntityRendererMixin extends EntityRenderer<Fi
                 .setNormal(matrix, 0.0f, 1.0f, 0.0f);
     }
 
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    public void extractVillagerFishingState(FishingHook entity, FishingHookRenderState renderState, float partialTick, CallbackInfo ci) {
+        if (renderState instanceof VillagerFishingRenderState villagerState && entity.getOwner() != null && entity.getOwner().getType() == EntityType.VILLAGER) {
+            Villager villager = (Villager) entity.getOwner();
+            villagerState.isVillagerFishing = true;
+            float bodyRot = Mth.lerp(partialTick, villager.yBodyRotO, villager.yBodyRot) * ((float) Math.PI / 180);
+            double sin = Mth.sin(bodyRot);
+            double cos = Mth.cos(bodyRot);
+            double handOffset = 0.4;
+            double handX = Mth.lerp(partialTick, villager.xo, villager.getX()) - sin * handOffset;
+            double handY = villager.yo + villager.getEyeHeight() + (villager.getY() - villager.yo) * partialTick - 0.45;
+            double handZ = Mth.lerp(partialTick, villager.zo, villager.getZ()) + cos * handOffset;
+            Vec3 hookPos = entity.getPosition(partialTick).add(0.0, 0.25, 0.0);
+            villagerState.villagerHandOffset = new Vec3(handX - hookPos.x, handY - hookPos.y, handZ - hookPos.z);
+        }
+    }
+
+    @Inject(method = "createRenderState", at = @At("HEAD"), cancellable = true)
+    public void createVillagerRenderState(CallbackInfoReturnable<FishingHookRenderState> cir) {
+        cir.setReturnValue(new VillagerFishingRenderState());
+    }
+
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    public void render(FishingHook fishingBobberEntity, float f, float g, PoseStack matrixStack,
-                       MultiBufferSource vertexConsumerProvider, int i, CallbackInfo ci) {
-        double s;
-        double q;
-        double p;
-        double o;
-        if (fishingBobberEntity.getOwner() == null) {
+    public void renderVillagerFishing(FishingHookRenderState renderState, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int packedLight, CallbackInfo ci) {
+        if (!(renderState instanceof VillagerFishingRenderState villagerState) || !villagerState.isVillagerFishing) {
             return;
         }
-        if (fishingBobberEntity.getOwner().getType() != EntityType.VILLAGER) {
-            return;
-        }
-        Villager villager = (Villager) fishingBobberEntity.getOwner();
+        
         matrixStack.pushPose();
         matrixStack.pushPose();
         matrixStack.scale(0.5f, 0.5f, 0.5f);
         matrixStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
         matrixStack.mulPose(Axis.YP.rotationDegrees(180.0f));
-        PoseStack.Pose entry = matrixStack.last();
+        PoseStack.Pose pose = matrixStack.last();
         VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(RENDER_TYPE);
-        vertex(vertexConsumer, entry, i, 0.0f, 0, 0, 1);
-        vertex(vertexConsumer, entry, i, 1.0f, 0, 1, 1);
-        vertex(vertexConsumer, entry, i, 1.0f, 1, 1, 0);
-        vertex(vertexConsumer, entry, i, 0.0f, 1, 0, 0);
+        vertex(vertexConsumer, pose, packedLight, 0.0f, 0, 0, 1);
+        vertex(vertexConsumer, pose, packedLight, 1.0f, 0, 1, 1);
+        vertex(vertexConsumer, pose, packedLight, 1.0f, 1, 1, 0);
+        vertex(vertexConsumer, pose, packedLight, 0.0f, 1, 0, 0);
         matrixStack.popPose();
-        float l = Mth.lerp(g, villager.yBodyRotO, villager.yBodyRot) * ((float) Math.PI / 180);
-        double d = Mth.sin(l);
-        double e = Mth.cos(l);
-        double n = 0.4;
-        o = Mth.lerp(g, villager.xo, villager.getX()) - d * n;
-        p = villager.yo + (double) villager.getEyeHeight() +
-                (villager.getY() - villager.yo) * (double) g - 0.45;
-        q = Mth.lerp(g, villager.zo, villager.getZ()) + e * n;
-
-        s = Mth.lerp(g, fishingBobberEntity.xo, fishingBobberEntity.getX());
-        double t = Mth.lerp(g, fishingBobberEntity.yo, fishingBobberEntity.getY()) + 0.25;
-        double u = Mth.lerp(g, fishingBobberEntity.zo, fishingBobberEntity.getZ());
-        float v = (float) (o - s);
-        float w = (float) (p - t);
-        float x = (float) (q - u);
-        VertexConsumer vertexConsumer2 = vertexConsumerProvider.getBuffer(RenderType.lines());
-        PoseStack.Pose entry2 = matrixStack.last();
-        for (int z = 0; z <= 16; ++z) {
-            // There's a bug in 1.19.3 which causes the line strips to not properly end when the layer is
-            // switched, which means a line is drawn from the end of one fishing line to the next fishing line.
-            FishingBobberEntityRendererMixin.renderFishingLineAsLine(v, w, x, vertexConsumer2, entry2,
-                    FishingBobberEntityRendererMixin.fraction(z, 16),
-                    FishingBobberEntityRendererMixin.fraction(z + 1, 16));
+        
+        Vec3 offset = villagerState.villagerHandOffset;
+        float x = (float) offset.x;
+        float y = (float) offset.y;
+        float z = (float) offset.z;
+        VertexConsumer lineConsumer = vertexConsumerProvider.getBuffer(RenderType.lines());
+        PoseStack.Pose linePose = matrixStack.last();
+        for (int i = 0; i <= 16; ++i) {
+            FishingBobberEntityRendererMixin.renderFishingLineAsLine(x, y, z, lineConsumer, linePose,
+                    FishingBobberEntityRendererMixin.fraction(i, 16),
+                    FishingBobberEntityRendererMixin.fraction(i + 1, 16));
         }
         matrixStack.popPose();
-        super.render(fishingBobberEntity, f, g, matrixStack, vertexConsumerProvider, i);
+        super.render(renderState, matrixStack, vertexConsumerProvider, packedLight);
         ci.cancel();
     }
 }
