@@ -51,10 +51,6 @@ public abstract class FindPointOfInterestTaskMixin {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @author LibertyVillagers
-     * @reason Don't find workstations at night, filter occupied beds, increase POI range
-     */
     @Overwrite
     public static BehaviorControl<PathfinderMob> create(
         Predicate<Holder<PoiType>> acquirablePois,
@@ -146,10 +142,6 @@ public abstract class FindPointOfInterestTaskMixin {
             : BehaviorBuilder.create(instance -> instance.group(instance.absent(existingAbsentMemory)).apply(instance, memoryAccessor -> oneShot));
     }
 
-    /**
-     * @author LibertyVillagers
-     * @reason Increase minimum POI claim distance based on config
-     */
     @Overwrite
     @Nullable
     public static Path findPathToPois(Mob mob, Set<Pair<Holder<PoiType>, BlockPos>> poiPositions) {

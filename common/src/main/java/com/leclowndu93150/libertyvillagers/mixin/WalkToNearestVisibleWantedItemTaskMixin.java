@@ -20,10 +20,6 @@ import org.spongepowered.asm.mixin.Overwrite;
 @Mixin(GoToWantedItem.class)
 public abstract class WalkToNearestVisibleWantedItemTaskMixin {
 
-    /**
-     * @author LibertyVillagers
-     * @reason Prevent villagers from moving if already on top of item or if inventory is full
-     */
     @Overwrite
     public static <E extends LivingEntity> BehaviorControl<E> create(Predicate<E> pCanWalkToItem, float pSpeedModifier, boolean pHasTarget, int pMaxDistToWalk) {
         return BehaviorBuilder.create((p_258371_) -> {

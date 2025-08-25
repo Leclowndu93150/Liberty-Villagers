@@ -6,7 +6,6 @@ import com.leclowndu93150.libertyvillagers.cmds.VillagerSetPOI;
 import com.leclowndu93150.libertyvillagers.cmds.VillagerStats;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.minecraft.world.entity.ai.behavior.*;
 
 import static net.minecraft.commands.Commands.literal;
 
@@ -14,10 +13,7 @@ public class LibertyVillagers implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // Initialize common mod
         CommonClass.init();
-        
-        // Register commands for Fabric
         registerCommands();
     }
     

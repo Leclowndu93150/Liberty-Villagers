@@ -3,6 +3,10 @@ plugins {
     id 'fabric-loom'
 }
 
+base {
+    archivesName = "${mod_id}-1.21.1-Fabric"
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.layered {

@@ -18,10 +18,6 @@ import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 @Mixin(AssignProfessionFromJobSite.class)
 public class GoToWorkTaskMixin {
 
-    /**
-     * @author LibertyVillagers
-     * @reason Modify distance check based on config
-     */
     @Overwrite
     public static BehaviorControl<Villager> create() {
         return BehaviorBuilder.create(

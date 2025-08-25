@@ -35,10 +35,6 @@ public class TakeJobSiteTaskMixin {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @author LibertyVillagers
-     * @reason Modify completion range for job site claiming based on config
-     */
     @Overwrite
     public static BehaviorControl<Villager> create(float pSpeedModifier) {
         return BehaviorBuilder.create((p_258916_) -> p_258916_.group(p_258916_.present(MemoryModuleType.POTENTIAL_JOB_SITE), p_258916_.absent(MemoryModuleType.JOB_SITE), p_258916_.present(MemoryModuleType.NEAREST_LIVING_ENTITIES), p_258916_.registered(MemoryModuleType.WALK_TARGET), p_258916_.registered(MemoryModuleType.LOOK_TARGET)).apply(p_258916_, (p_258901_, p_258902_, p_258903_, p_258904_, p_258905_) -> (p_258912_, p_258913_, p_258914_) -> {

@@ -17,10 +17,6 @@ import org.spongepowered.asm.mixin.Overwrite;
 @Mixin(StrollToPoiList.class)
 public class GoToSecondaryPositionTaskMixin {
 
-    /**
-     * @author LibertyVillagers
-     * @reason Prevent fisherman villagers from strolling while fishing
-     */
     @Overwrite
     public static BehaviorControl<Villager> create(
         MemoryModuleType<List<GlobalPos>> poiListMemory,

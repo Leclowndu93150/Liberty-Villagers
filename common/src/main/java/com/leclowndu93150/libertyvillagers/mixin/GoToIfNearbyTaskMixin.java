@@ -21,10 +21,6 @@ import org.spongepowered.asm.mixin.Overwrite;
 @Mixin(StrollAroundPoi.class)
 public class GoToIfNearbyTaskMixin {
 
-    /**
-     * @author LibertyVillagers
-     * @reason Prevent fisherman villagers from wandering while fishing
-     */
     @Overwrite
     public static OneShot<PathfinderMob> create(MemoryModuleType<GlobalPos> pPoiPosMemory, float pSpeedModifier, int pMaxDistFromPoi) {
         MutableLong mutablelong = new MutableLong(0L);

@@ -27,10 +27,6 @@ public abstract class ForgetCompletedPointOfInterestTaskMixin  {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @author LibertyVillagers
-     * @reason Use Manhattan distance instead of Euclidean to avoid confusion with beds near stairs
-     */
     @Overwrite
     public static BehaviorControl<LivingEntity> create(Predicate<Holder<PoiType>> poiValidator, MemoryModuleType<GlobalPos> poiPosMemory) {
         return BehaviorBuilder.create(

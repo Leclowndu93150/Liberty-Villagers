@@ -35,10 +35,6 @@ import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 @Mixin(value = SetClosestHomeAsWalkTarget.class)
 public abstract class WalkHomeTaskMixin {
 
-    /**
-     * @author LibertyVillagers
-     * @reason Replace squared distance with Manhattan distance, modify POI range, and filter occupied beds
-     */
     @Overwrite
     public static BehaviorControl<PathfinderMob> create(float speedModifier) {
         Long2LongMap long2LongMap = new Long2LongOpenHashMap();
