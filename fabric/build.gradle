@@ -4,7 +4,7 @@ plugins {
 }
 
 base {
-    archivesName = "${mod_id}-1.21.4-Fabric"
+    archivesName = "${mod_id}-${minecraft_version}-Fabric"
 }
 
 dependencies {
