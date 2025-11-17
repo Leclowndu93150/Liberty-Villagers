@@ -1,5 +1,6 @@
 package com.gitsh01.libertyvillagers.mixin;
 
+import net.minecraft.entity.ai.brain.Activity;
 import net.minecraft.entity.ai.brain.MemoryModuleType;
 import net.minecraft.entity.ai.brain.task.WalkTowardJobSiteTask;
 import net.minecraft.entity.passive.VillagerEntity;
@@ -20,7 +21,9 @@ public class WalkTowardJobSiteTaskMixin {
             cancellable = true)
     private void dontSetWalkTargetIfAlreadySet(ServerWorld serverWorld, VillagerEntity villagerEntity, long l,
                                                CallbackInfo ci) {
-        // Prevent the villager from spamming the brain over and over with the same walk target.
+        if (villagerEntity.getBrain().hasActivity(Activity.PANIC)) {
+            return;
+        }
         if (villagerEntity.getBrain().hasMemoryModule(MemoryModuleType.WALK_TARGET)) {
             ci.cancel();
         }
