@@ -159,21 +159,22 @@ public abstract class VillagerTaskListProviderMixin {
         }
 
         RunOne<Villager> randomTask = new RunOne<>(ImmutableList.copyOf(randomTasks));
-        ArrayList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> tasks = new ArrayList<>(
-                List.of(VillagerTaskListProviderMixin.invokeCreateBusyFollowTask(),
-                        Pair.of(7, randomTask),
-                        Pair.of(10, new ShowTradesToPlayer(400, 1600)),
-                        Pair.of(10, SetLookAndInteract.create(EntityType.PLAYER, 4)),
-                        Pair.of(2, SetWalkTargetFromBlockMemory.create(MemoryModuleType.JOB_SITE, speed, 9,
-                                        CONFIG.villagerPathfindingConfig.pathfindingMaxRange, 1200)),
-                        Pair.of(3, new GiveGiftToHero(100)),
-                        Pair.of(99, UpdateActivityFromSchedule.create())));
+        ArrayList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> tasks = new ArrayList<>();
 
-        // Villager Placement compat: add return to idle position behavior
+        // Villager Placement compat: add return to idle position behavior at highest priority
         BehaviorControl<Villager> returnToIdleBehavior = VillagerPlacementCompat.createReturnToIdleBehavior();
         if (returnToIdleBehavior != null) {
-            tasks.add(0, Pair.of(1, returnToIdleBehavior));
+            tasks.add(Pair.of(1, returnToIdleBehavior));
         }
+
+        tasks.add(VillagerTaskListProviderMixin.invokeCreateBusyFollowTask());
+        tasks.add(Pair.of(7, randomTask));
+        tasks.add(Pair.of(10, new ShowTradesToPlayer(400, 1600)));
+        tasks.add(Pair.of(10, SetLookAndInteract.create(EntityType.PLAYER, 4)));
+        tasks.add(Pair.of(2, SetWalkTargetFromBlockMemory.create(MemoryModuleType.JOB_SITE, speed, 9,
+                CONFIG.villagerPathfindingConfig.pathfindingMaxRange, 1200)));
+        tasks.add(Pair.of(3, new GiveGiftToHero(100)));
+        tasks.add(Pair.of(99, UpdateActivityFromSchedule.create()));
 
         cir.setReturnValue(ImmutableList.copyOf(tasks));
         cir.cancel();
