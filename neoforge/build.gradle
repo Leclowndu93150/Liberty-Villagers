@@ -38,7 +38,7 @@ neoForge {
 }
 
 dependencies {
-    implementation "curse.maven:cloth-config-348521:5987045"
+    implementation "curse.maven:cloth-config-348521:6669837"
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }

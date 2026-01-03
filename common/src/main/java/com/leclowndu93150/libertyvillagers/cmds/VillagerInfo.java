@@ -111,7 +111,7 @@ public class VillagerInfo {
 
         Villager villager = (Villager)entity;
         String occupation =
-                VillagerStats.translatedProfession(villager.getVillagerData().getProfession());
+                VillagerStats.translatedProfession(villager.getVillagerData().profession().value());
         lines.add(Component.translatable("text.LibertyVillagers.villagerInfo.occupation", occupation));
 
         // Client-side villagers don't have memories.

@@ -16,7 +16,7 @@ public class FollowCustomerTaskMixin {
     @Inject(method = "checkExtraStartConditions", at = @At(value = "HEAD"), cancellable = true)
     protected void replaceShouldRun(ServerLevel serverWorld, Villager villager,
                                     CallbackInfoReturnable<Boolean> cir) {
-        if (villager.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
+        if (villager.getVillagerData().profession().is(VillagerProfession.FISHERMAN) &&
                 villager.getMainHandItem().is(Items.FISHING_ROD)) {
             cir.setReturnValue(false);
             cir.cancel();

@@ -126,10 +126,10 @@ public class VillagerStats {
         int unemployed = 0;
         int homeless = 0;
         for (Villager villager : villagers) {
-            if (villager.getVillagerData().getProfession() == VillagerProfession.NITWIT) {
+            if (villager.getVillagerData().profession().is(VillagerProfession.NITWIT)) {
                 nitwits++;
             }
-            if (villager.getVillagerData().getProfession() == VillagerProfession.NONE) {
+            if (villager.getVillagerData().profession().is(VillagerProfession.NONE)) {
                 unemployed++;
             }
             if (villager.isBaby()) {
@@ -199,11 +199,11 @@ public class VillagerStats {
         for (Villager villager : villagers) {
             if (villager.isBaby()) {
                 String babyText = Component.translatable("text.LibertyVillagers.villagerStats.baby").getString();
-                villagerProfessionMap.merge(babyText, new ProfessionInfo(villager.getVillagerData().getProfession(), 1),
+                villagerProfessionMap.merge(babyText, new ProfessionInfo(villager.getVillagerData().profession().value(), 1),
                         ProfessionInfo::mergeProfessionInfo);
             } else {
-                villagerProfessionMap.merge(translatedProfession(villager.getVillagerData().getProfession()),
-                        new ProfessionInfo(villager.getVillagerData().getProfession(), 1),
+                villagerProfessionMap.merge(translatedProfession(villager.getVillagerData().profession().value()),
+                        new ProfessionInfo(villager.getVillagerData().profession().value(), 1),
                         ProfessionInfo::mergeProfessionInfo);
             }
         }

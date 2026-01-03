@@ -26,11 +26,10 @@ public class FarmlandBlockMixin extends Block {
     @Inject(method = "fallOn",
     at = @At("HEAD"),
     cancellable = true)
-    public void villagedDontTrample(Level world, BlockState state, BlockPos pos, Entity entity,
-                                        float fallDistance, CallbackInfo ci) {
+    public void villagedDontTrample(Level level, BlockState state, BlockPos pos, Entity entity, double fallDistance, CallbackInfo ci) {
         if ((CONFIG.villagersGeneralConfig.villagersDontTrampleCrops && entity instanceof Villager) ||
             (CONFIG.golemsConfig.golemsDontTrampleCrops && entity instanceof AbstractGolem)) {
-            super.fallOn(world, state, pos, entity, fallDistance);
+            super.fallOn(level, state, pos, entity, fallDistance);
             ci.cancel();
         }
     }
