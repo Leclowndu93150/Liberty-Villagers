@@ -7,8 +7,8 @@ import net.minecraft.world.entity.ai.behavior.StrollToPoiList;
 import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.item.Items;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,45 +19,45 @@ public class GoToSecondaryPositionTaskMixin {
 
     @Overwrite
     public static BehaviorControl<Villager> create(
-        MemoryModuleType<List<GlobalPos>> poiListMemory,
+        MemoryModuleType<List<GlobalPos>> strollToMemoryType,
         float speedModifier,
         int closeEnoughDist,
-        int maxDistFromPoi,
-        MemoryModuleType<GlobalPos> mustBeCloseToMemory
+        int maxDistanceFromPoi,
+        MemoryModuleType<GlobalPos> mustBeCloseToMemoryType
     ) {
-        MutableLong mutableLong = new MutableLong(0L);
+        MutableLong nextOkStartTime = new MutableLong(0L);
         return BehaviorBuilder.create(
-            instance -> instance.group(instance.registered(MemoryModuleType.WALK_TARGET), instance.present(poiListMemory), instance.present(mustBeCloseToMemory))
-                    .apply(
-                        instance,
-                        (memoryAccessor, memoryAccessor2, memoryAccessor3) -> (serverLevel, villager, l) -> {
-                                // Check if the villager is a fisherman holding a fishing rod
-                                if (villager.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
-                                        villager.getMainHandItem().is(Items.FISHING_ROD)) {
-                                    return false; // Prevent strolling while fishing
-                                }
-                                
-                                List<GlobalPos> list = (List<GlobalPos>)instance.get(memoryAccessor2);
-                                GlobalPos globalPos = (GlobalPos)instance.get(memoryAccessor3);
-                                if (list.isEmpty()) {
-                                    return false;
-                                } else {
-                                    GlobalPos globalPos2 = (GlobalPos)list.get(serverLevel.getRandom().nextInt(list.size()));
-                                    if (globalPos2 != null
-                                        && serverLevel.dimension() == globalPos2.dimension()
-                                        && globalPos.pos().closerToCenterThan(villager.position(), (double)maxDistFromPoi)) {
-                                        if (l > mutableLong.getValue()) {
-                                            memoryAccessor.set(new WalkTarget(globalPos2.pos(), speedModifier, closeEnoughDist));
-                                            mutableLong.setValue(l + 100L);
-                                        }
+            i -> i.group(i.registered(MemoryModuleType.WALK_TARGET), i.present(strollToMemoryType), i.present(mustBeCloseToMemoryType))
+                .apply(
+                    i,
+                    (walkTarget, strollToMemory, mustBeCloseToMemory) -> (level, body, timestamp) -> {
+                        // Custom: Check if the villager is a fisherman holding a fishing rod
+                        if (body.getVillagerData().profession().is(VillagerProfession.FISHERMAN) &&
+                                body.getMainHandItem().is(Items.FISHING_ROD)) {
+                            return false; // Prevent strolling while fishing
+                        }
 
-                                        return true;
-                                    } else {
-                                        return false;
-                                    }
+                        List<GlobalPos> strollTo = i.get(strollToMemory);
+                        GlobalPos stayCloseTo = i.get(mustBeCloseToMemory);
+                        if (strollTo.isEmpty()) {
+                            return false;
+                        } else {
+                            GlobalPos targetPos = strollTo.get(level.getRandom().nextInt(strollTo.size()));
+                            if (targetPos != null
+                                && level.dimension() == targetPos.dimension()
+                                && stayCloseTo.pos().closerToCenterThan(body.position(), maxDistanceFromPoi)) {
+                                if (timestamp > nextOkStartTime.longValue()) {
+                                    walkTarget.set(new WalkTarget(targetPos.pos(), speedModifier, closeEnoughDist));
+                                    nextOkStartTime.setValue(timestamp + 100L);
                                 }
+
+                                return true;
+                            } else {
+                                return false;
                             }
-                    )
+                        }
+                    }
+                )
         );
     }
 }

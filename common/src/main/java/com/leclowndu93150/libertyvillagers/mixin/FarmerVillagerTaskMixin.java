@@ -1,6 +1,6 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
-import com.leclowndu93150.libertyvillagers.ReflectionHelper;
+import com.leclowndu93150.libertyvillagers.util.ReflectionHelper;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -13,12 +13,11 @@ import net.minecraft.world.entity.ai.behavior.BlockPosTracker;
 import net.minecraft.world.entity.ai.behavior.HarvestFarmland;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.AttachedStemBlock;
 import net.minecraft.world.level.block.BeetrootBlock;
 import net.minecraft.world.level.block.Block;
@@ -31,6 +30,7 @@ import net.minecraft.world.level.block.PumpkinBlock;
 import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.gamerules.GameRules;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -67,7 +67,7 @@ public abstract class FarmerVillagerTaskMixin {
     @Inject(method = "checkExtraStartConditions", at = @At(value = "HEAD"), cancellable = true)
     protected void replaceShouldRun(ServerLevel serverWorld, Villager villagerEntity,
                                     CallbackInfoReturnable<Boolean> cir) {
-        if (!serverWorld.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+        if (!serverWorld.getGameRules().get(GameRules.MOB_GRIEFING)) {
             cir.setReturnValue(false);
             cir.cancel();
         } else if (!villagerEntity.getVillagerData().profession().is(VillagerProfession.FARMER)) {

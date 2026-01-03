@@ -13,7 +13,7 @@ import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.MemoryStatus;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 
 public abstract class HealTargetTask extends Behavior<Villager> {
     public static final float WALK_SPEED = 0.7F;
@@ -34,7 +34,8 @@ public abstract class HealTargetTask extends Behavior<Villager> {
 
     protected abstract List<LivingEntity> getPossiblePatients(ServerLevel serverWorld, Villager villagerEntity);
 
-    protected boolean shouldRun(ServerLevel serverWorld, Villager villagerEntity) {
+    @Override
+    protected boolean checkExtraStartConditions(ServerLevel serverWorld, Villager villagerEntity) {
         List<LivingEntity> possiblePatients = getPossiblePatients(serverWorld, villagerEntity);
         List<LivingEntity> patients = Lists.newArrayList();
         for (LivingEntity possiblePatient : possiblePatients) {
@@ -51,7 +52,8 @@ public abstract class HealTargetTask extends Behavior<Villager> {
         return this.currentPatient != null;
     }
 
-    protected void run(ServerLevel serverWorld, Villager villagerEntity, long l) {
+    @Override
+    protected void start(ServerLevel serverWorld, Villager villagerEntity, long l) {
         if (l > this.nextResponseTime && this.currentPatient != null) {
             villagerEntity.getBrain()
                     .setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(this.currentPatient, true));
@@ -60,14 +62,16 @@ public abstract class HealTargetTask extends Behavior<Villager> {
         }
     }
 
-    protected void finishRunning(ServerLevel serverWorld, Villager villagerEntity, long l) {
+    @Override
+    protected void stop(ServerLevel serverWorld, Villager villagerEntity, long l) {
         villagerEntity.getBrain().eraseMemory(MemoryModuleType.LOOK_TARGET);
         villagerEntity.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET);
         this.ticksRan = 0;
         this.nextResponseTime = l + 40L;
     }
 
-    protected void keepRunning(ServerLevel serverWorld, Villager villagerEntity, long l) {
+    @Override
+    protected void tick(ServerLevel serverWorld, Villager villagerEntity, long l) {
         // Check to see if the patient was healed or died before the villager reached it.
         if (!isValidPatient(currentPatient)) {
             return;
@@ -83,7 +87,8 @@ public abstract class HealTargetTask extends Behavior<Villager> {
     protected abstract void healTarget(ServerLevel serverWorld, Villager villagerEntity,
                                        LivingEntity currentPatient);
 
-    protected boolean shouldKeepRunning(ServerLevel serverWorld, Villager villagerEntity, long l) {
+    @Override
+    protected boolean canStillUse(ServerLevel serverWorld, Villager villagerEntity, long l) {
         // Check to see if the patient was healed or died before the villager reached it.
         if (!isValidPatient(currentPatient)) {
             return false;

@@ -1,6 +1,5 @@
 package com.leclowndu93150.libertyvillagers;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.StringSplitter;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
@@ -18,7 +17,7 @@ public class LibertyVillagersClientInitializer {
     public static void openBookScreen(ItemStack bookStack) {
         BookViewScreen screen = new BookViewScreen(BookViewScreen.BookAccess.fromItem(bookStack));
 
-        RenderSystem.recordRenderCall(() -> Minecraft.getInstance().setScreen(screen));
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(screen));
     }
 
     public static List<String> wrapText(String string) {

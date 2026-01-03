@@ -1,4 +1,4 @@
-package com.leclowndu93150.libertyvillagers;
+package com.leclowndu93150.libertyvillagers.util;
 
 import java.lang.reflect.Field;
 

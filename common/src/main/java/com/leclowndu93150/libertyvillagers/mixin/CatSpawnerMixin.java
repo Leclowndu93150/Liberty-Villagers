@@ -12,7 +12,7 @@ import net.minecraft.world.entity.npc.CatSpawner;
 public class CatSpawnerMixin {
 
     @ModifyConstant(
-            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)I",
+            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)V",
             constant = @Constant(doubleValue = 48.0))
     private double replaceCatSpawnDistanceXZ(double value) {
         if (CONFIG.catsConfig.catsSpawnLimit) {
@@ -22,7 +22,7 @@ public class CatSpawnerMixin {
     }
 
     @ModifyConstant(
-            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)I",
+            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)V",
             constant = @Constant(doubleValue = 8.0))
     private double replaceCatSpawnDistanceY(double value) {
         if (CONFIG.catsConfig.catsSpawnLimit) {
@@ -32,7 +32,7 @@ public class CatSpawnerMixin {
     }
 
     @ModifyConstant(
-            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)I",
+            method = "spawnInVillage(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)V",
             constant = @Constant(intValue = 5))
     private int replaceCatSpawnLimitCount(int value) {
         if (CONFIG.catsConfig.catsSpawnLimit) {

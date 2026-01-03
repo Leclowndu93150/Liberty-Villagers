@@ -14,7 +14,7 @@ import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.BlockPosTracker;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.MemoryStatus;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
@@ -53,7 +53,8 @@ public class GoFishingTask extends Behavior<Villager> {
                 MemoryStatus.VALUE_PRESENT), MAX_RUN_TIME);
     }
 
-    protected boolean shouldRun(ServerLevel serverWorld, Villager villagerEntity) {
+    @Override
+    protected boolean checkExtraStartConditions(ServerLevel serverWorld, Villager villagerEntity) {
         // This just looks wrong.
         if (villagerEntity.isInWater()) {
             return false;
@@ -87,8 +88,8 @@ public class GoFishingTask extends Behavior<Villager> {
 
                 // Next, look for an entity between us and the block that the bobber might hit to avoid fishing
                 // through buddies.
-                if (ProjectileUtil.getEntityHitResult(serverWorld, villagerEntity, bobberStartPosition, centerBlockPos,
-                        box, Entity::isAlive) != null) {
+                if (ProjectileUtil.getEntityHitResult(villagerEntity, bobberStartPosition, centerBlockPos,
+                        box, Entity::isAlive, Double.MAX_VALUE) != null) {
                     // We're going to hit someone.
                     continue;
                 }
@@ -115,14 +116,16 @@ public class GoFishingTask extends Behavior<Villager> {
         return false;
     }
 
-    protected void run(ServerLevel serverWorld, Villager villagerEntity, long time) {
+    @Override
+    protected void start(ServerLevel serverWorld, Villager villagerEntity, long time) {
         villagerEntity.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.FISHING_ROD));
         villagerEntity.setDropChance(EquipmentSlot.MAINHAND, 0.0f);
         villagerEntity.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new BlockPosTracker(targetBlockPos.above()));
         bobberCountdown = TURN_TIME + time;
     }
 
-    protected boolean shouldKeepRunning(ServerLevel world, Villager entity, long time) {
+    @Override
+    protected boolean canStillUse(ServerLevel world, Villager entity, long time) {
         // Villager dropped the fishing rod for some reason.
         if (!entity.getMainHandItem().is(Items.FISHING_ROD)) {
             return false;
@@ -146,13 +149,15 @@ public class GoFishingTask extends Behavior<Villager> {
         return !caughtFish;
     }
 
-    protected void keepRunning(ServerLevel serverWorld, Villager villagerEntity, long time) {
+    @Override
+    protected void tick(ServerLevel serverWorld, Villager villagerEntity, long time) {
         if (!hasThrownBobber && time > bobberCountdown) {
             throwBobber(villagerEntity, serverWorld);
         }
     }
 
-    protected void finishRunning(ServerLevel serverWorld, Villager villagerEntity, long l) {
+    @Override
+    protected void stop(ServerLevel serverWorld, Villager villagerEntity, long l) {
         villagerEntity.getBrain().eraseMemory(MemoryModuleType.LOOK_TARGET);
         villagerEntity.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET);
         if (bobber != null) {
@@ -182,7 +187,7 @@ public class GoFishingTask extends Behavior<Villager> {
 
         Vec3 bobberStartPosition = getBobberStartPosition(thrower, targetBlockPos);
 
-        bobber.moveTo(bobberStartPosition.x, bobberStartPosition.y, bobberStartPosition.z,
+        bobber.snapTo(bobberStartPosition.x, bobberStartPosition.y, bobberStartPosition.z,
                 thrower.getYRot(),
                 thrower.getXRot());
 

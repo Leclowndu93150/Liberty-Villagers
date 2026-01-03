@@ -9,7 +9,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.PathfinderMob;
@@ -37,67 +36,67 @@ public abstract class WalkHomeTaskMixin {
 
     @Overwrite
     public static BehaviorControl<PathfinderMob> create(float speedModifier) {
-        Long2LongMap long2LongMap = new Long2LongOpenHashMap();
-        MutableLong mutableLong = new MutableLong(0L);
+        Long2LongMap batchCache = new Long2LongOpenHashMap();
+        MutableLong lastUpdate = new MutableLong(0L);
         return BehaviorBuilder.create(
             instance -> instance.group(instance.absent(MemoryModuleType.WALK_TARGET), instance.absent(MemoryModuleType.HOME))
                     .apply(
                         instance,
-                        (memoryAccessor, memoryAccessor2) -> (serverLevel, pathfinderMob, l) -> {
-                                if (serverLevel.getGameTime() - mutableLong.getValue() < 20L) {
+                        (walkTarget, home) -> (level, body, timestamp) -> {
+                                if (level.getGameTime() - lastUpdate.longValue() < 20L) {
                                     return false;
                                 } else {
-                                    PoiManager poiManager = serverLevel.getPoiManager();
-                                    Optional<BlockPos> optional = poiManager.findClosest(holder -> holder.is(PoiTypes.HOME), pathfinderMob.blockPosition(), CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.ANY);
+                                    PoiManager poiManager = level.getPoiManager();
+                                    Optional<BlockPos> closest = poiManager.findClosest(holder -> holder.is(PoiTypes.HOME), body.blockPosition(), CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.ANY);
                                     // Use Manhattan distance instead of squared distance
-                                    if (!optional.isEmpty() && !(((BlockPos)optional.get()).distManhattan(pathfinderMob.blockPosition()) <= 2)) {
-                                        MutableInt mutableInt = new MutableInt(0);
-                                        mutableLong.setValue(serverLevel.getGameTime() + (long)serverLevel.getRandom().nextInt(20));
-                                        Predicate<BlockPos> predicate = blockPosx -> {
-                                            long lx = blockPosx.asLong();
-                                            if (long2LongMap.containsKey(lx)) {
+                                    if (!closest.isEmpty() && !(closest.get().distManhattan(body.blockPosition()) <= 2)) {
+                                        MutableInt triedCount = new MutableInt(0);
+                                        lastUpdate.setValue(level.getGameTime() + level.getRandom().nextInt(20));
+                                        Predicate<BlockPos> cacheTest = pos -> {
+                                            long key = pos.asLong();
+                                            if (batchCache.containsKey(key)) {
                                                 return false;
-                                            } else if (mutableInt.incrementAndGet() >= 5) {
+                                            } else if (triedCount.incrementAndGet() >= 5) {
                                                 return false;
                                             } else {
-                                                long2LongMap.put(lx, mutableLong.getValue() + 40L);
+                                                batchCache.put(key, lastUpdate.longValue() + 40L);
                                                 return true;
                                             }
                                         };
-                                        
+
                                         // Modified predicate to filter occupied beds
-                                        Predicate<BlockPos> newBlockPosPredicate = blockPos -> {
-                                            if (isBedOccupied(serverLevel, blockPos)) {
+                                        Predicate<BlockPos> bedFilterPredicate = pos -> {
+                                            if (isBedOccupied(level, pos)) {
                                                 return false;
                                             }
-                                            return predicate.test(blockPos);
+                                            return cacheTest.test(pos);
                                         };
-                                        
-                                        Set<Pair<Holder<PoiType>, BlockPos>> set = (Set<Pair<Holder<PoiType>, BlockPos>>)poiManager.findAllClosestFirstWithType(
-                                                holder -> holder.is(PoiTypes.HOME), newBlockPosPredicate, pathfinderMob.blockPosition(), 
+
+                                        Set<Pair<Holder<PoiType>, BlockPos>> pois = poiManager.findAllWithType(
+                                                holder -> holder.is(PoiTypes.HOME), bedFilterPredicate, body.blockPosition(),
                                                 CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.HAS_SPACE
                                             )
                                             .collect(Collectors.toSet());
-                                        
+
                                         // If all beds are occupied, fall back to default behavior
-                                        if (set.isEmpty()) {
-                                            set = (Set<Pair<Holder<PoiType>, BlockPos>>)poiManager.findAllClosestFirstWithType(
-                                                    holder -> holder.is(PoiTypes.HOME), predicate, pathfinderMob.blockPosition(),
+                                        if (pois.isEmpty()) {
+                                            pois = poiManager.findAllWithType(
+                                                    holder -> holder.is(PoiTypes.HOME), cacheTest, body.blockPosition(),
                                                     CONFIG.villagerPathfindingConfig.findPOIRange, PoiManager.Occupancy.ANY
                                                 )
                                                 .collect(Collectors.toSet());
                                         }
-                                        
-                                        Path path = AcquirePoi.findPathToPois(pathfinderMob, set);
+
+                                        Path path = AcquirePoi.findPathToPois(body, pois);
                                         if (path != null && path.canReach()) {
-                                            BlockPos blockPos = path.getTarget();
-                                            Optional<Holder<PoiType>> optional2 = poiManager.getType(blockPos);
-                                            if (optional2.isPresent()) {
-                                                memoryAccessor.set(new WalkTarget(blockPos, speedModifier, 1));
-                                                DebugPackets.sendPoiTicketCountPacket(serverLevel, blockPos);
+                                            BlockPos targetPos = path.getTarget();
+                                            Optional<Holder<PoiType>> type = poiManager.getType(targetPos);
+                                            if (type.isPresent()) {
+                                                walkTarget.set(new WalkTarget(targetPos, speedModifier, 1));
+                                                level.debugSynchronizers().updatePoi(targetPos);
                                             }
-                                        } else if (mutableInt.getValue() < 5) {
-                                            long2LongMap.long2LongEntrySet().removeIf(entry -> entry.getLongValue() < mutableLong.getValue());
+                                        } else if (triedCount.intValue() < 5) {
+                                            batchCache.long2LongEntrySet().removeIf(entry -> entry.getLongValue() < lastUpdate.longValue());
                                         }
 
                                         return true;
@@ -109,9 +108,9 @@ public abstract class WalkHomeTaskMixin {
                     )
         );
     }
-    
-    private static boolean isBedOccupied(ServerLevel world, BlockPos pos) {
-        BlockState blockState = world.getBlockState(pos);
+
+    private static boolean isBedOccupied(ServerLevel level, BlockPos pos) {
+        BlockState blockState = level.getBlockState(pos);
         return blockState.is(BlockTags.BEDS) && blockState.getValue(BedBlock.OCCUPIED);
     }
 }

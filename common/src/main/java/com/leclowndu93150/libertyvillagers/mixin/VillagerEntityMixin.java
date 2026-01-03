@@ -2,8 +2,6 @@ package com.leclowndu93150.libertyvillagers.mixin;
 
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
@@ -14,17 +12,14 @@ import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
-import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.npc.AbstractVillager;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerData;
-import net.minecraft.world.entity.npc.VillagerDataHolder;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.level.storage.ValueInput;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -37,7 +32,7 @@ import java.util.*;
 import java.util.function.BiPredicate;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
-import static net.minecraft.world.entity.npc.Villager.POI_MEMORIES;
+import static net.minecraft.world.entity.npc.villager.Villager.POI_MEMORIES;
 
 @Mixin(Villager.class)
 public abstract class VillagerEntityMixin extends AbstractVillager implements ReputationEventHandler, VillagerDataHolder {
@@ -104,13 +99,13 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
         }
         ServerLevel world = (ServerLevel) this.level();
 
-        VillagerProfession profession = this.getVillagerData().getProfession();
-        if (CONFIG.villagersGeneralConfig.noNitwitVillagers && profession == VillagerProfession.NITWIT) {
-            this.setVillagerData(getVillagerData().setProfession(VillagerProfession.NONE));
+        Holder<VillagerProfession> profession = this.getVillagerData().profession();
+        if (CONFIG.villagersGeneralConfig.noNitwitVillagers && profession.is(VillagerProfession.NITWIT)) {
+            this.setVillagerData(getVillagerData().withProfession(world.registryAccess(), VillagerProfession.NONE));
             brain.stopAll(world, (Villager) ((Object) this));
         }
-        if (CONFIG.villagersGeneralConfig.allNitwitVillagers && profession != VillagerProfession.NITWIT) {
-            this.setVillagerData(getVillagerData().setProfession(VillagerProfession.NITWIT));
+        if (CONFIG.villagersGeneralConfig.allNitwitVillagers && !profession.is(VillagerProfession.NITWIT)) {
+            this.setVillagerData(getVillagerData().withProfession(world.registryAccess(), VillagerProfession.NITWIT));
             this.releaseTicketFor(brain, world, MemoryModuleType.JOB_SITE);
             this.releaseTicketFor(brain, world, MemoryModuleType.POTENTIAL_JOB_SITE);
             brain.stopAll(world, (Villager) ((Object) this));
@@ -120,7 +115,7 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
     // The brain is not yet assigned when initBrain is called, so it must be specified.
     public void releaseTicketFor(Brain<Villager> brain, ServerLevel world, MemoryModuleType<GlobalPos> memoryModuleType) {
         MinecraftServer minecraftServer = world.getServer();
-        brain.getMemoryInternal(memoryModuleType).ifPresent(pos -> {
+        brain.getMemory(memoryModuleType).ifPresent(pos -> {
             ServerLevel serverWorld = minecraftServer.getLevel(pos.dimension());
             if (serverWorld == null) {
                 return;
@@ -130,7 +125,7 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
             BiPredicate<Villager, Holder<PoiType>> biPredicate = POI_MEMORIES.get(memoryModuleType);
             if (optional.isPresent() && biPredicate.test((Villager) ((Object) this), optional.get())) {
                 pointOfInterestStorage.release(pos.pos());
-                DebugPackets.sendPoiTicketCountPacket(serverWorld, pos.pos());
+                serverWorld.debugSynchronizers().updatePoi(pos.pos());
             }
         });
     }
@@ -194,9 +189,9 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
         }
     }
 
-    @Inject(method = "readAdditionalSaveData",
+    @Inject(method = "readAdditionalSaveData(Lnet/minecraft/world/level/storage/ValueInput;)V",
             at = @At("TAIL"))
-   public void readCustomDataFromNbt(CompoundTag nbt, CallbackInfo ci) {
+    public void readCustomDataFromNbt(ValueInput input, CallbackInfo ci) {
         // If initialized with a rod, get rid of it.
         if (this.getMainHandItem().is(Items.FISHING_ROD)) {
             this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
@@ -207,7 +202,7 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
             if (stack.isEmpty()) continue;
             // Keep food items and profession-specific items
             if (FOOD_POINTS.containsKey(stack.getItem())) continue;
-            if (this.getVillagerData().getProfession().requestedItems().contains(stack.getItem())) continue;
+            if (this.getVillagerData().profession().value().requestedItems().contains(stack.getItem())) continue;
             this.getInventory().removeItemNoUpdate(i);
         }
     }

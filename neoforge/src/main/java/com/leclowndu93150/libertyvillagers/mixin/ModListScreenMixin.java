@@ -3,6 +3,7 @@ package com.leclowndu93150.libertyvillagers.mixin;
 import com.leclowndu93150.libertyvillagers.Constants;
 import com.leclowndu93150.libertyvillagers.config.BaseConfig;
 import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.AutoConfigClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -42,7 +43,7 @@ public class ModListScreenMixin {
     @Inject(method = "displayModConfig", at = @At("HEAD"), cancellable = true)
     private void onDisplayModConfig(CallbackInfo ci) {
         if (selected != null && Constants.MOD_ID.equals(selected.getInfo().getModId())) {
-            Screen configScreen = AutoConfig.getConfigScreen(BaseConfig.class, (ModListScreen)(Object)this).get();
+            Screen configScreen = AutoConfigClient.getConfigScreen(BaseConfig.class, (ModListScreen)(Object)this).get();
             Minecraft.getInstance().setScreen(configScreen);
             ci.cancel();
         }

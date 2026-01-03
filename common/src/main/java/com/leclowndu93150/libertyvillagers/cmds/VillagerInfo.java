@@ -3,6 +3,7 @@ package com.leclowndu93150.libertyvillagers.cmds;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
@@ -13,9 +14,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
+import net.minecraft.world.entity.ai.village.poi.PoiRecord;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
@@ -62,8 +64,8 @@ public class VillagerInfo {
 
         HitResult hitResult2;
         // Look for an entity between us and the block.
-        if ((hitResult2 = ProjectileUtil.getEntityHitResult(serverWorld, player, vec3d2, vec3d3,
-                player.getBoundingBox().expandTowards(player.getDeltaMovement()).inflate(maxDistance), Entity::isAlive)) != null) {
+        if ((hitResult2 = ProjectileUtil.getEntityHitResult(serverWorld, player, vec3d, vec3d3,
+                player.getBoundingBox().expandTowards(player.getDeltaMovement()).inflate(maxDistance), Entity::isAlive, 0.3f)) != null) {
             hit = hitResult2;
         }
 
@@ -192,7 +194,7 @@ public class VillagerInfo {
                 lines.add(Component.translatable("text.LibertyVillagers.villagerInfo.numBees", numBees));
             }
 
-            int numHoney = blockState.getAnalogOutputSignal(serverWorld, blockPos);
+            int numHoney = blockState.getAnalogOutputSignal(serverWorld, blockPos, Direction.DOWN);
             lines.add(Component.translatable("text.LibertyVillagers.villagerInfo.numHoney", numHoney));
         }
 
@@ -212,7 +214,7 @@ public class VillagerInfo {
             return lines;
         }
 
-        String poiTypeName = optionalRegistryKey.get().location().toString();
+        String poiTypeName = optionalRegistryKey.get().identifier().toString();
 
         lines.add(Component.translatable("text.LibertyVillagers.villagerInfo.poiType", poiTypeName));
 
@@ -222,8 +224,10 @@ public class VillagerInfo {
             return lines;
         }
 
-        @SuppressWarnings("deprecation")
-        int freeTickets = storage.getFreeTickets(blockPos);
+        Optional<PoiRecord> poiRecord = storage.getInRange(holder -> true, blockPos, 0, PoiManager.Occupancy.ANY)
+                .filter(record -> record.getPos().equals(blockPos))
+                .findFirst();
+        int freeTickets = poiRecord.map(PoiRecord::getFreeTickets).orElse(0);
         Component isOccupied =
                 freeTickets < poiType.maxTickets() ? Component.translatable("text.LibertyVillagers.villagerInfo.true") :
                         Component.translatable("text" + ".LibertyVillagers.villagerInfo.false");

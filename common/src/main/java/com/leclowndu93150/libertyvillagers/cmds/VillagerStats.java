@@ -5,8 +5,11 @@ import com.leclowndu93150.libertyvillagers.LibertyVillagersMod;
 import com.leclowndu93150.libertyvillagers.LibertyVillagersServerInitializer;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -17,11 +20,11 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiRecord;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
-import net.minecraft.world.entity.animal.Cat;
-import net.minecraft.world.entity.animal.CatVariant;
-import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.animal.feline.CatVariant;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.WrittenBookContent;
@@ -29,7 +32,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
-import static net.minecraft.commands.Commands.literal;
 
 class ProfessionInfo {
     public VillagerProfession profession;
@@ -350,14 +352,17 @@ public class VillagerStats {
 
         TreeMap<String, Integer> catVariantMap = new TreeMap<>();
 
-        for (Map.Entry<ResourceKey<CatVariant>, CatVariant> catVariantEntry : BuiltInRegistries.CAT_VARIANT.entrySet()) {
-            catVariantMap.put(translatedCatVariant(catVariantEntry.getKey().location().toShortLanguageKey()), 0);
+        Registry<CatVariant> catVariantRegistry = serverWorld.registryAccess().lookupOrThrow(Registries.CAT_VARIANT);
+        for (Holder.Reference<CatVariant> catVariantEntry : catVariantRegistry.listElements().toList()) {
+            catVariantMap.put(translatedCatVariant(catVariantEntry.key().identifier().toShortLanguageKey()), 0);
         }
 
         if (cats.size() > 0) {
             for (Cat cat : cats) {
-                String variant =
-                        translatedCatVariant(BuiltInRegistries.CAT_VARIANT.getKey(cat.getVariant().value()).toShortLanguageKey());
+                Holder<CatVariant> variantHolder = cat.getVariant();
+                String variant = variantHolder.unwrapKey()
+                        .map(key -> translatedCatVariant(key.identifier().toShortLanguageKey()))
+                        .orElse("unknown");
                 catVariantMap.merge(variant, 1, Integer::sum);
             }
 

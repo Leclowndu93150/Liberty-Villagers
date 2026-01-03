@@ -2,17 +2,19 @@ package com.leclowndu93150.libertyvillagers.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.FishingHookRenderer;
 import net.minecraft.client.renderer.entity.state.FishingHookRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.phys.Vec3;
 import com.leclowndu93150.libertyvillagers.util.VillagerFishingRenderState;
@@ -37,45 +39,36 @@ public abstract class FishingBobberEntityRendererMixin extends EntityRenderer<Fi
     }
 
     @Shadow
-    private static float fraction(int value, int max) {
+    private static float fraction(int i, int steps) {
         return 0;
     }
 
     @Unique
-    private static void renderFishingLineAsLine(float x, float y, float z, VertexConsumer buffer,
-                                                PoseStack.Pose matrices, float segmentStart, float segmentEnd) {
-        float f = x * segmentStart;
-        float g = y * (segmentStart * segmentStart + segmentStart) * 0.5f + 0.25f;
-        float h = z * segmentStart;
-        float i = x * segmentEnd - f;
-        float j = y * (segmentEnd * segmentEnd + segmentEnd) * 0.5f + 0.25f - g;
-        float k = z * segmentEnd - h;
-        float l = Mth.sqrt(i * i + j * j + k * k);
-
-        // Todo TEST if vertex is automatically consumed
-        buffer.addVertex(matrices.pose(), f, g, h)
-                .setColor(0, 0, 0, 255)
-                .setNormal(matrices, i /= l, j /= l, k /= l);
-
-        // Switching from line strip to line, so add doubles of all the intermediate points. 0->1, 1->2, 2->3.
-        if ((segmentStart != 0) && (segmentStart != 1.0f)) {
-            buffer.addVertex(matrices.pose(), f, g, h)
-                    .setColor(0, 0, 0, 255)
-                    .setNormal(matrices, i, j, k);
-        }
+    private static void vertex(VertexConsumer buffer, PoseStack.Pose pose, int lightCoords, float x, int y, int u, int v) {
+        buffer.addVertex(pose, x - 0.5f, (float) y - 0.5f, 0.0f)
+                .setColor(-1)
+                .setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(lightCoords)
+                .setNormal(pose, 0.0f, 1.0f, 0.0f);
     }
 
     @Unique
-    private static void vertex(VertexConsumer buffer, PoseStack.Pose matrix, int light, float x, int y, int u, int v) {
-        buffer.addVertex(matrix, x - 0.5f, (float) y - 0.5f, 0.0f)
-                .setColor(255, 255, 255, 255)
-                .setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(light)
-                .setNormal(matrix, 0.0f, 1.0f, 0.0f);
+    private static void stringVertex(float xa, float ya, float za, VertexConsumer buffer, PoseStack.Pose pose, float aa, float nexta, float width) {
+        float x = xa * aa;
+        float y = ya * (aa * aa + aa) * 0.5f + 0.25f;
+        float z = za * aa;
+        float nx = xa * nexta - x;
+        float ny = ya * (nexta * nexta + nexta) * 0.5f + 0.25f - y;
+        float nz = za * nexta - z;
+        float length = Mth.sqrt(nx * nx + ny * ny + nz * nz);
+        nx /= length;
+        ny /= length;
+        nz /= length;
+        buffer.addVertex(pose, x, y, z).setColor(-16777216).setNormal(pose, nx, ny, nz).setLineWidth(width);
     }
 
-    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/projectile/FishingHook;Lnet/minecraft/client/renderer/entity/state/FishingHookRenderState;F)V", at = @At("TAIL"))
     public void extractVillagerFishingState(FishingHook entity, FishingHookRenderState renderState, float partialTick, CallbackInfo ci) {
         if (renderState instanceof VillagerFishingRenderState villagerState && entity.getOwner() != null && entity.getOwner().getType() == EntityType.VILLAGER) {
             Villager villager = (Villager) entity.getOwner();
@@ -97,38 +90,39 @@ public abstract class FishingBobberEntityRendererMixin extends EntityRenderer<Fi
         cir.setReturnValue(new VillagerFishingRenderState());
     }
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    public void renderVillagerFishing(FishingHookRenderState renderState, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int packedLight, CallbackInfo ci) {
+    @Inject(method = "submit", at = @At("HEAD"), cancellable = true)
+    public void submitVillagerFishing(FishingHookRenderState renderState, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
         if (!(renderState instanceof VillagerFishingRenderState villagerState) || !villagerState.isVillagerFishing) {
             return;
         }
-        
-        matrixStack.pushPose();
-        matrixStack.pushPose();
-        matrixStack.scale(0.5f, 0.5f, 0.5f);
-        matrixStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
-        matrixStack.mulPose(Axis.YP.rotationDegrees(180.0f));
-        PoseStack.Pose pose = matrixStack.last();
-        VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(RENDER_TYPE);
-        vertex(vertexConsumer, pose, packedLight, 0.0f, 0, 0, 1);
-        vertex(vertexConsumer, pose, packedLight, 1.0f, 0, 1, 1);
-        vertex(vertexConsumer, pose, packedLight, 1.0f, 1, 1, 0);
-        vertex(vertexConsumer, pose, packedLight, 0.0f, 1, 0, 0);
-        matrixStack.popPose();
-        
+
+        poseStack.pushPose();
+        poseStack.pushPose();
+        poseStack.scale(0.5f, 0.5f, 0.5f);
+        poseStack.mulPose(camera.orientation);
+        submitNodeCollector.submitCustomGeometry(poseStack, RENDER_TYPE, (pose, buffer) -> {
+            vertex(buffer, pose, renderState.lightCoords, 0.0f, 0, 0, 1);
+            vertex(buffer, pose, renderState.lightCoords, 1.0f, 0, 1, 1);
+            vertex(buffer, pose, renderState.lightCoords, 1.0f, 1, 1, 0);
+            vertex(buffer, pose, renderState.lightCoords, 0.0f, 1, 0, 0);
+        });
+        poseStack.popPose();
+
         Vec3 offset = villagerState.villagerHandOffset;
-        float x = (float) offset.x;
-        float y = (float) offset.y;
-        float z = (float) offset.z;
-        VertexConsumer lineConsumer = vertexConsumerProvider.getBuffer(RenderType.lines());
-        PoseStack.Pose linePose = matrixStack.last();
-        for (int i = 0; i <= 16; ++i) {
-            FishingBobberEntityRendererMixin.renderFishingLineAsLine(x, y, z, lineConsumer, linePose,
-                    FishingBobberEntityRendererMixin.fraction(i, 16),
-                    FishingBobberEntityRendererMixin.fraction(i + 1, 16));
-        }
-        matrixStack.popPose();
-        super.render(renderState, matrixStack, vertexConsumerProvider, packedLight);
+        float xa = (float) offset.x;
+        float ya = (float) offset.y;
+        float za = (float) offset.z;
+        float width = Minecraft.getInstance().getWindow().getAppropriateLineWidth();
+        submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.lines(), (pose, buffer) -> {
+            for (int i = 0; i < 16; i++) {
+                float a0 = fraction(i, 16);
+                float a1 = fraction(i + 1, 16);
+                stringVertex(xa, ya, za, buffer, pose, a0, a1, width);
+                stringVertex(xa, ya, za, buffer, pose, a1, a0, width);
+            }
+        });
+        poseStack.popPose();
+        super.submit(renderState, poseStack, submitNodeCollector, camera);
         ci.cancel();
     }
 }

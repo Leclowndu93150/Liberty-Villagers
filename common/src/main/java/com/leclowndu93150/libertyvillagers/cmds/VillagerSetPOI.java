@@ -5,7 +5,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,8 +16,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import java.util.Optional;
-
-import static net.minecraft.commands.Commands.literal;
 
 public class VillagerSetPOI {
 
@@ -61,16 +58,16 @@ public class VillagerSetPOI {
             return;
         }
 
-        String poiTypeName = optionalRegistryKey.get().location().toString();
+        String poiTypeName = optionalRegistryKey.get().identifier().toString();
         PoiManager storage = serverWorld.getPoiManager();
 
         if (!storage.existsAtPosition(optionalRegistryKey.get(), blockPos)) {
             storage.add(blockPos, optionalRegistryEntry.get());
-            DebugPackets.sendPoiAddedPacket(serverWorld, blockPos);
+            serverWorld.debugSynchronizers().updatePoi(blockPos);
             player.sendSystemMessage(Component.translatable("text.LibertyVillagers.villagerSetPOI.enable", name, poiTypeName));
         } else {
             storage.remove(blockPos);
-            DebugPackets.sendPoiRemovedPacket(serverWorld, blockPos);
+            serverWorld.debugSynchronizers().dropPoi(blockPos);
             player.sendSystemMessage(Component.translatable("text.LibertyVillagers.villagerSetPOI.disable", name, poiTypeName));
         }
     }

@@ -14,10 +14,8 @@ import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
-import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
@@ -32,7 +30,7 @@ import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.pathfinder.Path;
 import org.apache.commons.lang3.mutable.MutableLong;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
@@ -47,124 +45,125 @@ public abstract class FindPointOfInterestTaskMixin {
 
     @Shadow
     public static BehaviorControl<PathfinderMob> create(
-        Predicate<Holder<PoiType>> acquirablePois, MemoryModuleType<GlobalPos> acquiringMemory, boolean onlyIfAdult, Optional<Byte> entityEventId
+        Predicate<Holder<PoiType>> poiType, MemoryModuleType<GlobalPos> memoryToAcquire, boolean onlyIfAdult, Optional<Byte> onPoiAcquisitionEvent
     ) {
         throw new UnsupportedOperationException();
     }
 
     @Overwrite
     public static BehaviorControl<PathfinderMob> create(
-        Predicate<Holder<PoiType>> acquirablePois,
-        MemoryModuleType<GlobalPos> existingAbsentMemory,
-        MemoryModuleType<GlobalPos> acquiringMemory,
+        Predicate<Holder<PoiType>> poiType,
+        MemoryModuleType<GlobalPos> memoryToValidate,
+        MemoryModuleType<GlobalPos> memoryToAcquire,
         boolean onlyIfAdult,
-        Optional<Byte> entityEventId,
-        BiPredicate<ServerLevel, BlockPos> predicate
+        Optional<Byte> onPoiAcquisitionEvent,
+        BiPredicate<ServerLevel, BlockPos> validPoi
     ) {
-        int i = 5;
-        int j = 20;
-        MutableLong mutableLong = new MutableLong(0L);
-        Long2ObjectMap<JitteredLinearRetry> long2ObjectMap = new Long2ObjectOpenHashMap<>();
-        OneShot<PathfinderMob> oneShot = BehaviorBuilder.create(
-            instance -> instance.group(instance.absent(acquiringMemory))
-                    .apply(
-                        instance,
-                        memoryAccessor -> (serverLevel, pathfinderMob, l) -> {
-                                // Don't find workstations at night for villagers (except beds)
-                                if (CONFIG.villagersGeneralConfig.villagersDontLookForWorkstationsAtNight &&
-                                        pathfinderMob.getType() == EntityType.VILLAGER && 
-                                        acquiringMemory != MemoryModuleType.HOME) {
-                                    long timeOfDay = serverLevel.getDayTime() % TICKS_PER_DAY;
-                                    if (timeOfDay > TIME_NIGHT) {
-                                        return false;
-                                    }
+        int batchSize = 5;
+        int rate = 20;
+        MutableLong nextScheduledStart = new MutableLong(0L);
+        Long2ObjectMap<JitteredLinearRetry> batchCache = new Long2ObjectOpenHashMap<>();
+        OneShot<PathfinderMob> acquirePoi = BehaviorBuilder.create(
+            i -> i.group(i.absent(memoryToAcquire))
+                .apply(
+                    i,
+                    toAcquire -> (level, body, timestamp) -> {
+                        // Custom: Don't find workstations at night for villagers (except beds)
+                        if (CONFIG.villagersGeneralConfig.villagersDontLookForWorkstationsAtNight &&
+                                body.getType() == EntityType.VILLAGER &&
+                                memoryToAcquire != MemoryModuleType.HOME) {
+                            long timeOfDay = level.getDayTime() % TICKS_PER_DAY;
+                            if (timeOfDay > TIME_NIGHT) {
+                                return false;
+                            }
+                        }
+
+                        if (onlyIfAdult && body.isBaby()) {
+                            return false;
+                        } else if (nextScheduledStart.longValue() == 0L) {
+                            nextScheduledStart.setValue(level.getGameTime() + level.random.nextInt(20));
+                            return false;
+                        } else if (level.getGameTime() < nextScheduledStart.longValue()) {
+                            return false;
+                        } else {
+                            nextScheduledStart.setValue(timestamp + 20L + level.getRandom().nextInt(20));
+                            PoiManager poiManager = level.getPoiManager();
+                            batchCache.long2ObjectEntrySet().removeIf(entry -> !entry.getValue().isStillValid(timestamp));
+                            Predicate<BlockPos> cacheTest = pos -> {
+                                // Custom: Filter out occupied beds
+                                if (isBedOccupied(level, pos)) {
+                                    return false;
                                 }
-                                
-                                if (onlyIfAdult && pathfinderMob.isBaby()) {
-                                    return false;
-                                } else if (mutableLong.getValue() == 0L) {
-                                    mutableLong.setValue(serverLevel.getGameTime() + (long)serverLevel.random.nextInt(20));
-                                    return false;
-                                } else if (serverLevel.getGameTime() < mutableLong.getValue()) {
+
+                                JitteredLinearRetry retryMarker = batchCache.get(pos.asLong());
+                                if (retryMarker == null) {
+                                    return true;
+                                } else if (!retryMarker.shouldRetry(timestamp)) {
                                     return false;
                                 } else {
-                                    mutableLong.setValue(l + 20L + (long)serverLevel.getRandom().nextInt(20));
-                                    PoiManager poiManager = serverLevel.getPoiManager();
-                                    long2ObjectMap.long2ObjectEntrySet().removeIf(entry -> !((JitteredLinearRetry)entry.getValue()).isStillValid(l));
-                                    Predicate<BlockPos> predicate2 = blockPos -> {
-                                        // Filter out occupied beds
-                                        if (isBedOccupied(serverLevel, blockPos)) {
-                                            return false;
-                                        }
-                                        
-                                        JitteredLinearRetry jitteredLinearRetry = (JitteredLinearRetry)long2ObjectMap.get(blockPos.asLong());
-                                        if (jitteredLinearRetry == null) {
-                                            return true;
-                                        } else if (!jitteredLinearRetry.shouldRetry(l)) {
-                                            return false;
-                                        } else {
-                                            jitteredLinearRetry.markAttempt(l);
-                                            return true;
-                                        }
-                                    };
-
-                                    int poiRange = Math.max(48, CONFIG.villagerPathfindingConfig.findPOIRange);
-                                    
-                                    Set<Pair<Holder<PoiType>, BlockPos>> set = (Set<Pair<Holder<PoiType>, BlockPos>>)poiManager.findAllClosestFirstWithType(
-                                            acquirablePois, predicate2, pathfinderMob.blockPosition(), poiRange, PoiManager.Occupancy.HAS_SPACE
-                                        )
-                                        .limit(5L)
-                                        .filter(pair -> predicate.test(serverLevel, pair.getSecond()))
-                                        .collect(Collectors.toSet());
-                                    Path path = findPathToPois(pathfinderMob, set);
-                                    if (path != null && path.canReach()) {
-                                        BlockPos blockPos = path.getTarget();
-                                        poiManager.getType(blockPos).ifPresent(holder -> {
-                                            poiManager.take(acquirablePois, (holderx, blockPos2) -> blockPos2.equals(blockPos), blockPos, 1);
-                                            memoryAccessor.set(GlobalPos.of(serverLevel.dimension(), blockPos));
-                                            entityEventId.ifPresent(byte_ -> serverLevel.broadcastEntityEvent(pathfinderMob, byte_));
-                                            long2ObjectMap.clear();
-                                            DebugPackets.sendPoiTicketCountPacket(serverLevel, blockPos);
-                                        });
-                                    } else {
-                                        for (Pair<Holder<PoiType>, BlockPos> pair : set) {
-                                            long2ObjectMap.computeIfAbsent(
-                                                pair.getSecond().asLong(),
-                                                (Long2ObjectFunction<? extends JitteredLinearRetry>)(m -> new JitteredLinearRetry(serverLevel.random, l))
-                                            );
-                                        }
-                                    }
-
+                                    retryMarker.markAttempt(timestamp);
                                     return true;
                                 }
+                            };
+
+                            // Custom: Use configurable POI range
+                            int poiRange = Math.max(48, CONFIG.villagerPathfindingConfig.findPOIRange);
+
+                            Set<Pair<Holder<PoiType>, BlockPos>> poiPositions = poiManager.findAllClosestFirstWithType(
+                                    poiType, cacheTest, body.blockPosition(), poiRange, PoiManager.Occupancy.HAS_SPACE
+                                )
+                                .limit(5L)
+                                .filter(px -> validPoi.test(level, px.getSecond()))
+                                .collect(Collectors.toSet());
+                            Path path = findPathToPois(body, poiPositions);
+                            if (path != null && path.canReach()) {
+                                BlockPos targetPos = path.getTarget();
+                                poiManager.getType(targetPos).ifPresent(type -> {
+                                    poiManager.take(poiType, (t, poiPos) -> poiPos.equals(targetPos), targetPos, 1);
+                                    toAcquire.set(GlobalPos.of(level.dimension(), targetPos));
+                                    onPoiAcquisitionEvent.ifPresent(event -> level.broadcastEntityEvent(body, event));
+                                    batchCache.clear();
+                                    level.debugSynchronizers().updatePoi(targetPos);
+                                });
+                            } else {
+                                for (Pair<Holder<PoiType>, BlockPos> p : poiPositions) {
+                                    batchCache.computeIfAbsent(
+                                        p.getSecond().asLong(),
+                                        (Long2ObjectFunction<? extends JitteredLinearRetry>)(key -> new JitteredLinearRetry(level.random, timestamp))
+                                    );
+                                }
                             }
-                    )
+
+                            return true;
+                        }
+                    }
+                )
         );
-        return acquiringMemory == existingAbsentMemory
-            ? oneShot
-            : BehaviorBuilder.create(instance -> instance.group(instance.absent(existingAbsentMemory)).apply(instance, memoryAccessor -> oneShot));
+        return memoryToAcquire == memoryToValidate
+            ? acquirePoi
+            : BehaviorBuilder.create(i -> i.group(i.absent(memoryToValidate)).apply(i, toValidate -> acquirePoi));
     }
 
     @Overwrite
-    @Nullable
-    public static Path findPathToPois(Mob mob, Set<Pair<Holder<PoiType>, BlockPos>> poiPositions) {
-        if (poiPositions.isEmpty()) {
+    public static @Nullable Path findPathToPois(Mob body, Set<Pair<Holder<PoiType>, BlockPos>> pois) {
+        if (pois.isEmpty()) {
             return null;
         } else {
-            Set<BlockPos> set = new HashSet();
-            int i = 1;
+            Set<BlockPos> targets = new HashSet<>();
+            int maxRange = 1;
 
-            for (Pair<Holder<PoiType>, BlockPos> pair : poiPositions) {
-                i = Math.max(i, ((Holder<PoiType>)pair.getFirst()).value().validRange());
-                set.add((BlockPos)pair.getSecond());
+            for (Pair<Holder<PoiType>, BlockPos> p : pois) {
+                maxRange = Math.max(maxRange, p.getFirst().value().validRange());
+                targets.add(p.getSecond());
             }
 
-            i = Math.max(i, CONFIG.villagerPathfindingConfig.minimumPOISearchDistance);
+            // Custom: Use configurable minimum POI search distance
+            maxRange = Math.max(maxRange, CONFIG.villagerPathfindingConfig.minimumPOISearchDistance);
 
-            return mob.getNavigation().createPath(set, i);
+            return body.getNavigation().createPath(targets, maxRange);
         }
     }
-    
+
     private static boolean isBedOccupied(ServerLevel world, BlockPos pos) {
         BlockState blockState = world.getBlockState(pos);
         return blockState.is(BlockTags.BEDS) && blockState.getValue(BedBlock.OCCUPIED);

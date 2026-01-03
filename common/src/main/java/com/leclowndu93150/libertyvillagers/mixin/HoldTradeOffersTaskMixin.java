@@ -3,8 +3,8 @@ package com.leclowndu93150.libertyvillagers.mixin;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.behavior.ShowTradesToPlayer;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.item.Items;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,7 +19,7 @@ public class HoldTradeOffersTaskMixin {
             cancellable = true)
     public void shouldRunIfNotFishing(ServerLevel serverWorld, Villager villagerEntity,
                              CallbackInfoReturnable<Boolean> cir) {
-        if (villagerEntity.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
+        if (villagerEntity.getVillagerData().profession().is(VillagerProfession.FISHERMAN) &&
                 villagerEntity.getItemBySlot(EquipmentSlot.MAINHAND).is(Items.FISHING_ROD)) {
             cir.setReturnValue(false);
             cir.cancel();

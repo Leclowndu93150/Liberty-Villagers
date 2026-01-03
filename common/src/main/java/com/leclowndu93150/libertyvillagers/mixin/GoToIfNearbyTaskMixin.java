@@ -10,8 +10,8 @@ import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableLong;
@@ -22,31 +22,31 @@ import org.spongepowered.asm.mixin.Overwrite;
 public class GoToIfNearbyTaskMixin {
 
     @Overwrite
-    public static OneShot<PathfinderMob> create(MemoryModuleType<GlobalPos> pPoiPosMemory, float pSpeedModifier, int pMaxDistFromPoi) {
-        MutableLong mutablelong = new MutableLong(0L);
-        return BehaviorBuilder.create((p_258827_) -> p_258827_.group(p_258827_.registered(MemoryModuleType.WALK_TARGET), p_258827_.present(pPoiPosMemory)).apply(p_258827_, (p_258821_, p_258822_) -> (p_258834_, p_258835_, p_258836_) -> {
-            // Check if the entity is a fisherman villager holding a fishing rod
-            if (p_258835_.getType() == EntityType.VILLAGER) {
-                Villager villager = (Villager) p_258835_;
-                if (villager.getVillagerData().getProfession() == VillagerProfession.FISHERMAN &&
-                        villager.getMainHandItem().is(Items.FISHING_ROD)) {
-                    return false; // Prevent wandering while fishing
+    public static OneShot<PathfinderMob> create(MemoryModuleType<GlobalPos> memoryType, float speedModifier, int maxDistanceFromPoi) {
+        MutableLong nextOkStartTime = new MutableLong(0L);
+        return BehaviorBuilder.create(
+            i -> i.group(i.registered(MemoryModuleType.WALK_TARGET), i.present(memoryType)).apply(i, (walkTarget, memory) -> (level, body, timestamp) -> {
+                // Custom: Check if the entity is a fisherman villager holding a fishing rod
+                if (body.getType() == EntityType.VILLAGER) {
+                    Villager villager = (Villager) body;
+                    if (villager.getVillagerData().profession().is(VillagerProfession.FISHERMAN) &&
+                            villager.getMainHandItem().is(Items.FISHING_ROD)) {
+                        return false; // Prevent wandering while fishing
+                    }
                 }
-            }
-            
-            GlobalPos globalpos = (GlobalPos)p_258827_.get(p_258822_);
-            if (p_258834_.dimension() == globalpos.dimension() && globalpos.pos().closerToCenterThan(p_258835_.position(), (double)pMaxDistFromPoi)) {
-                if (p_258836_ <= mutablelong.getValue()) {
+
+                GlobalPos pos = i.get(memory);
+                if (level.dimension() != pos.dimension() || !pos.pos().closerToCenterThan(body.position(), maxDistanceFromPoi)) {
+                    return false;
+                } else if (timestamp <= nextOkStartTime.longValue()) {
                     return true;
                 } else {
-                    Optional<Vec3> optional = Optional.ofNullable(LandRandomPos.getPos(p_258835_, 8, 6));
-                    p_258821_.setOrErase(optional.map((p_258816_) -> new WalkTarget(p_258816_, pSpeedModifier, 1)));
-                    mutablelong.setValue(p_258836_ + 180L);
+                    Optional<Vec3> landPos = Optional.ofNullable(LandRandomPos.getPos(body, 8, 6));
+                    walkTarget.setOrErase(landPos.map(p -> new WalkTarget(p, speedModifier, 1)));
+                    nextOkStartTime.setValue(timestamp + 180L);
                     return true;
                 }
-            } else {
-                return false;
-            }
-        }));
+            })
+        );
     }
 }
