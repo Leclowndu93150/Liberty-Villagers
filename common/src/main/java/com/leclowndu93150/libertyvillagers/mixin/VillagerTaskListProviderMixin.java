@@ -1,5 +1,6 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
+import com.leclowndu93150.libertyvillagers.compat.VillagerPlacementCompat;
 import com.leclowndu93150.libertyvillagers.tasks.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -158,7 +159,7 @@ public abstract class VillagerTaskListProviderMixin {
         }
 
         RunOne<Villager> randomTask = new RunOne<>(ImmutableList.copyOf(randomTasks));
-        List<Pair<Integer, ? extends BehaviorControl<? super Villager>>> tasks =
+        ArrayList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> tasks = new ArrayList<>(
                 List.of(VillagerTaskListProviderMixin.invokeCreateBusyFollowTask(),
                         Pair.of(7, randomTask),
                         Pair.of(10, new ShowTradesToPlayer(400, 1600)),
@@ -166,7 +167,14 @@ public abstract class VillagerTaskListProviderMixin {
                         Pair.of(2, SetWalkTargetFromBlockMemory.create(MemoryModuleType.JOB_SITE, speed, 9,
                                         CONFIG.villagerPathfindingConfig.pathfindingMaxRange, 1200)),
                         Pair.of(3, new GiveGiftToHero(100)),
-                        Pair.of(99, UpdateActivityFromSchedule.create()));
+                        Pair.of(99, UpdateActivityFromSchedule.create())));
+
+        // Villager Placement compat: add return to idle position behavior
+        BehaviorControl<Villager> returnToIdleBehavior = VillagerPlacementCompat.createReturnToIdleBehavior();
+        if (returnToIdleBehavior != null) {
+            tasks.add(0, Pair.of(1, returnToIdleBehavior));
+        }
+
         cir.setReturnValue(ImmutableList.copyOf(tasks));
         cir.cancel();
     }
@@ -177,5 +185,37 @@ public abstract class VillagerTaskListProviderMixin {
             index = 2)
     private static int replaceCompletionRangeForWalkTowardsMeetTask(int completionRange) {
         return Math.max(CONFIG.villagerPathfindingConfig.minimumPOISearchDistance, completionRange) + 3;
+    }
+
+    // Villager Placement compat: inject into idle package
+    @Inject(method = "getIdlePackage", at = @At("RETURN"), cancellable = true)
+    private static void libertyvillagers$injectIdleBehavior(
+            VillagerProfession profession,
+            float speed,
+            CallbackInfoReturnable<ImmutableList<Pair<Integer, ? extends BehaviorControl<? super Villager>>>> cir
+    ) {
+        BehaviorControl<Villager> stayAtIdleBehavior = VillagerPlacementCompat.createStayAtIdleBehavior();
+        if (stayAtIdleBehavior != null) {
+            ImmutableList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> original = cir.getReturnValue();
+            ArrayList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> modifiedList = new ArrayList<>(original);
+            modifiedList.add(0, Pair.of(0, stayAtIdleBehavior));
+            cir.setReturnValue(ImmutableList.copyOf(modifiedList));
+        }
+    }
+
+    // Villager Placement compat: inject into meet package
+    @Inject(method = "getMeetPackage", at = @At("RETURN"), cancellable = true)
+    private static void libertyvillagers$injectMeetBehavior(
+            VillagerProfession profession,
+            float speed,
+            CallbackInfoReturnable<ImmutableList<Pair<Integer, ? extends BehaviorControl<? super Villager>>>> cir
+    ) {
+        BehaviorControl<Villager> returnToIdleBehavior = VillagerPlacementCompat.createReturnToIdleBehavior();
+        if (returnToIdleBehavior != null) {
+            ImmutableList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> original = cir.getReturnValue();
+            ArrayList<Pair<Integer, ? extends BehaviorControl<? super Villager>>> modifiedList = new ArrayList<>(original);
+            modifiedList.add(0, Pair.of(1, returnToIdleBehavior));
+            cir.setReturnValue(ImmutableList.copyOf(modifiedList));
+        }
     }
 }
