@@ -37,6 +37,38 @@ import static net.minecraft.world.entity.npc.villager.Villager.POI_MEMORIES;
 @Mixin(Villager.class)
 public abstract class VillagerEntityMixin extends AbstractVillager implements ReputationEventHandler, VillagerDataHolder {
 
+    // Additional food points that we add via config - checked alongside vanilla FOOD_POINTS
+    private static Map<Item, Integer> EXTRA_FOOD_POINTS = null;
+
+    private static Map<Item, Integer> getExtraFoodPoints() {
+        if (EXTRA_FOOD_POINTS == null) {
+            EXTRA_FOOD_POINTS = new HashMap<>();
+            if (CONFIG.villagersGeneralConfig.villagersEatMelons) {
+                EXTRA_FOOD_POINTS.put(Items.MELON_SLICE, 1);
+            }
+            if (CONFIG.villagersGeneralConfig.villagersEatPumpkinPie) {
+                EXTRA_FOOD_POINTS.put(Items.PUMPKIN_PIE, 1);
+            }
+            if (CONFIG.villagersGeneralConfig.villagersEatCookedFish) {
+                EXTRA_FOOD_POINTS.put(Items.COOKED_COD, 1);
+                EXTRA_FOOD_POINTS.put(Items.COOKED_SALMON, 1);
+            }
+        }
+        return EXTRA_FOOD_POINTS;
+    }
+
+    // Helper to check if an item is food (vanilla + extra)
+    private static boolean isFood(Item item) {
+        return Villager.FOOD_POINTS.containsKey(item) || getExtraFoodPoints().containsKey(item);
+    }
+
+    // Helper to get food points for an item (vanilla + extra)
+    private static Integer getFoodPoints(Item item) {
+        Integer points = Villager.FOOD_POINTS.get(item);
+        if (points != null) return points;
+        return getExtraFoodPoints().get(item);
+    }
+
     public VillagerEntityMixin(EntityType<? extends AbstractVillager> entityType, Level world) {
         super(entityType, world);
     }
@@ -46,27 +78,6 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
 
     @Shadow
     public abstract void setVillagerData(VillagerData villagerData);
-
-    @Shadow
-    public static Map<Item, Integer> FOOD_POINTS;
-
-    @Inject(method = "<clinit>", at = @At("TAIL"))
-    static private void modifyStaticBlock(CallbackInfo ci) {
-        // Add extra food items to FOOD_POINTS
-        if (CONFIG.villagersGeneralConfig.villagersEatMelons) {
-            FOOD_POINTS = new HashMap<>(FOOD_POINTS);
-            FOOD_POINTS.put(Items.MELON_SLICE, 1);
-        }
-        if (CONFIG.villagersGeneralConfig.villagersEatPumpkinPie) {
-            FOOD_POINTS = new HashMap<>(FOOD_POINTS);
-            FOOD_POINTS.put(Items.PUMPKIN_PIE, 1);
-        }
-        if (CONFIG.villagersGeneralConfig.villagersEatCookedFish) {
-            FOOD_POINTS = new HashMap<>(FOOD_POINTS);
-            FOOD_POINTS.put(Items.COOKED_COD, 1);
-            FOOD_POINTS.put(Items.COOKED_SALMON, 1);
-        }
-    }
 
     @Inject(at = @At("TAIL"), method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V")
     public void villagerInit(EntityType<? extends AbstractVillager> entityType, Level world, CallbackInfo ci) {
@@ -201,7 +212,7 @@ public abstract class VillagerEntityMixin extends AbstractVillager implements Re
             ItemStack stack = this.getInventory().getItem(i);
             if (stack.isEmpty()) continue;
             // Keep food items and profession-specific items
-            if (FOOD_POINTS.containsKey(stack.getItem())) continue;
+            if (isFood(stack.getItem())) continue;
             if (this.getVillagerData().profession().value().requestedItems().contains(stack.getItem())) continue;
             this.getInventory().removeItemNoUpdate(i);
         }

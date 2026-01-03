@@ -14,9 +14,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModLoader;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
@@ -25,7 +24,6 @@ import java.util.List;
 
 import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 
-@OnlyIn(Dist.CLIENT)
 public class LibertyVillagersOverlay {
 
     static int WHITE = 0xffffff;
