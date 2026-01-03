@@ -1,6 +1,7 @@
 package com.leclowndu93150.libertyvillagers.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,7 +20,7 @@ import static com.leclowndu93150.libertyvillagers.LibertyVillagersMod.CONFIG;
 @Mixin(WorkAtComposter.class)
 public class FarmerWorkTaskMixin {
 
-    @Shadow
+    @Shadow @Mutable
     private static List<Item> COMPOSTABLE_ITEMS;
 
     @Inject(method = "<clinit>", at = @At("TAIL"))
