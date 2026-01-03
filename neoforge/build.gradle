@@ -42,6 +42,9 @@ neoForge {
 
 dependencies {
     implementation "curse.maven:cloth-config-348521:5729127"
+
+    // Villager Placement API (optional soft dependency)
+    compileOnly files(rootProject.file('libs/villager_placement-1.21.1-NeoForge-1.1.6.jar'))
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
